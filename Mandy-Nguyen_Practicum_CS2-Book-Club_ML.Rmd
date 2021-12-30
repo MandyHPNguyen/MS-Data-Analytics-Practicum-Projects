@@ -1,0 +1,526 @@
+---
+title: "Bankruptcy Analysis"
+author: "Mandy HP Nguyen"
+date: "12/17/2021"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+  html_document:
+    theme: paper
+    highlight: breezedark
+    code_folding: hide
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    number_sections: yes
+  word_document:
+    toc: yes
+    toc_depth: '4'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Environment Setting
+
+## Load Mandy's Functions
+
+```{r}
+source("https://raw.githubusercontent.com/mandyhpnguyen/Mandy-Functions/main/M.R-Funcs/general.R")
+```
+
+## Load Packages
+
+```{r}
+pkgs <- c(
+  "beepr",
+  # General pkgs:
+  "tidyverse", "dplyr", "summarytools", "reshape2", "pastecs", "ROSE",
+  # Analytics pkgs:
+  "forecast", "zoo", "scorecard",
+  # Evaluation pkgs:
+  "caret", "DT", "lift", "gains", "gt", "cvms","tibble", "fourfoldplot",
+  # Visualization pkgs:
+  "RColorBrewer", "hrbrthemes", "knitr", "showtext", "sysfonts",
+  "ggfortify", "ggplot2", "corrplot", "GGally", "viridis",
+  "lattice", "grid", "cowplot", "Amelia"
+)
+suppressMessages(suppressWarnings(loadpkg(pkgs)))
+```
+
+## Set fonts
+
+```{r}
+# Load the main font I used in my paper to plot charts for standardization
+windowsFonts(cambria = windowsFont("Cambria"))
+my.par <- function() {
+  options(scipen = 999)
+  par(mfrow = c(1, 1),
+      family = "cambria", 
+      cex.main = 1.25, cex.lab = 1.25, cex.axis = 1.25)
+}
+```
+
+## Color Scheme
+
+```{r}
+pal <- c("cornflowerblue", "orange", "red2", "forestgreen", "mediumorchid1", "tomato3", "cadetblue1")
+```
+
+# Collect Data
+
+```{r}
+book <- read.csv("https://raw.githubusercontent.com/mandyhpnguyen/MS-Data-Analytics-Datasets/main/Data%20Mining/CharlesBookClub.csv")
+```
+
+# Pre-Process Data
+
+```{r}
+data <- book[, -c(1:2)]
+```
+
+## Variables
+
+```{r}
+var0 <- c(1:15, 17)
+var1 <- c("Rcode", "Fcode", "Mcode", "FirstPurch", "Related.Purchase")
+col0 <- c(1:17)
+col1 <- c("Florence", "Rcode", "Fcode", "Mcode", "FirstPurch", "Related.Purchase")
+```
+
+## Normalize Data
+
+```{r}
+set.seed(2021)
+options(scipen = 0)
+normalize <- function(x) {
+  return((x - min(x)) / (max(x) - min(x)))
+}
+data.n <- data
+data.n[, c(2:15, 17)] <- as.data.frame(lapply(data.n[, c(2:15, 17)], normalize))
+```
+
+# Explore Variables
+
+## Target Variable
+
+```{r}
+my.par() %>%  par(mfrow = c(1, 1),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(4,2,2,0) + 0.1
+                 )
+F_p <- plot(as.factor(book$Florence), ylim = c(0, 4000),
+            xlab = "Florence", col = c("cornflowerblue", "red2"))
+text(F_p, y = table(book$Florence),
+     labels = table(book$Florence),
+     pos = 3, cex = 1)
+```
+
+
+## Attributes Summaries
+
+```{r}
+setwd("C:/One Drives/OneDrive - Webster University/Webster Classes/21F_CSDA 6010_Practicum")
+options(scipen = 0, digits = 2)
+round(stat.desc(book), 0) %>% write.csv("book_descr.csv", row.names = TRUE)
+```
+
+## Stepwise Regression
+
+```{r}
+loreg_m_ic <- function(X, Z){
+  options(scipen = 0)
+  set.seed(2021)
+  lg.reg <- glm(Florence ~ ., data = X, family = "binomial")
+  # step(lg.reg, direction = Z)
+  summary(step(lg.reg, direction = Z))
+}
+```
+
+```{r}
+loreg_m_ic(data[, col0], "both")
+```
+
+```{r}
+var2 <- c("Gender", "R", "F", "ChildBks", "YouthBks", "CookBks", "DoItYBks", "RefBks", "ArtBks", "GeogBks", "ItalArt")
+col2 <- c("Florence", "Gender", "R", "F", "ChildBks", "YouthBks", "CookBks", "DoItYBks", "RefBks", "ArtBks", "GeogBks", "ItalArt")
+```
+
+# Parition
+
+## Raw Data
+
+```{r}
+set.seed(2021)
+train.index <- sample(1:nrow(data), 0.7*nrow(data))
+train <- data[train.index, ]
+valid <- data[-train.index, ]
+
+train.n <- data.n[train.index, ]
+valid.n <- data.n[-train.index, ]
+```
+
+## Balance with ROSE
+
+```{r}
+train.rose <- ROSE(Florence ~ ., data = train)$data
+train.n.rose <- ROSE(Florence ~ ., data = train.n)$data
+```
+
+```{r}
+table(train.rose$Florence)
+```
+
+```{r}
+my.par() %>% par(mfrow = c(1, 3),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(4,4,2,0) + 0.1
+                 )
+
+plot(factor(train$Florence),
+     ylim = c(0, 3000),
+     xlab = "Florence",
+     ylab = "Frequency",
+     main = "ImBalanced Training Set",
+     col = c("red2", "cornflowerblue")) %>% 
+text(0, y = table(train$Florence),
+     labels = paste(table(train$Florence), "-",
+                    round(prop.table(table(train$Florence))*100, 2),"%"),
+     pos = 3, cex = 1)
+
+plot(factor(train.rose$Florence),
+     ylim = c(0, 3000),
+     xlab = "Florence",
+     ylab = "Frequency",
+     main = "Balanced Training Set",
+     col = c("red2", "cornflowerblue")) %>% 
+text(0, y = table(train.rose$Florence),
+     labels = paste(table(train.rose$Florence), "-",
+                    round(prop.table(table(train.rose$Florence))*100, 2),"%"),
+     pos = 3, cex = 1)
+
+plot(factor(valid$Florence),
+     ylim = c(0, 3000),
+     xlab = "Florence",
+     ylab = "Frequency",
+     main = "Validation Set",
+     col = c("red2", "cornflowerblue")) %>% 
+text(0, y = table(valid$Florence),
+     labels = paste(table(valid$Florence), "-",
+                    round(prop.table(table(valid$Florence))*100, 2),"%"),
+     pos = 3, cex = 1)
+```
+
+# RFM Analysis
+
+## Response rate for training data
+
+## Add new column RFM
+
+```{r}
+data$R_F_M <- with(data, paste0(data$Rcode, "_",
+                                data$Fcode, "_",
+                                data$Mcode))
+names(data)
+head(data)
+```
+
+```{r}
+all_com <- round(table(train$Yes_Florence)/nrow(train), 4)
+all_com
+```
+
+## Count each combination's response
+
+```{r}
+z <- table(train$R_F_M, train$Florence)
+```
+
+## Reponse rate for each RFM combination in training data
+```{r}
+each_com <- round(prop.table(z, 1), 4)
+each_com
+```
+
+## Combinations with response rate in training data above overall response
+
+## Sort RFM combination
+```{r}
+sort(each_com[, '1'], decreasing = TRUE)
+```
+
+## Response rate in train data that above average response rate
+
+```{r}
+u <- each_com[each_com[ , '1'] > mean(each_com[ ,'1']), '1']
+u
+uy <- ifelse(u >= mean(u), "Yes", "No")
+```
+
+## Reponse rate for each RFM combinations in validation data
+
+```{r}
+z1 <- table(valid$R_F_M, valid$Florence)
+each_com1 <- round(prop.table(z1, 1), 4)
+## RFM combination in valid data
+each_com1[ , '1']
+
+dfrfm <- each_com1[ , '1'] %>% data.frame()
+dfrfm$STT <- seq(1, 49, 1)
+
+u1 <- each_com1[c(4, 5, 6, NA, 12, 14, 17, 18, 19, 21, 22, 23, 24, 31, 33, 38, 39), '1']
+u1y <- ifelse(u1 >= mean(u), "Yes", "No")
+
+##  1_1_4  1_1_5  1_2_2  1_3_2  1_3_5  2_1_2  2_1_5  2_2_2  2_2_3  2_2_5 
+## 0.2222 0.1111 0.5000 1.0000 0.1864 0.4000 0.1351 0.2500 0.1304 0.1277 
+##  2_3_3  2_3_4  2_3_5  3_2_3  3_3_5  4_1_2  4_1_3 
+## 0.2000 0.1395 0.1778 0.1333 0.1521 0.1111 0.1370
+
+confusionMatrix(factor(uy, levels = c("Yes", "No")), 
+                factor(u1y, levels = c("Yes", "No")))
+```
+
+# Logistic Regression
+
+## LR Data Sets
+
+```{r}
+train.lr <- train
+train.lr.rose <- train.rose
+valid.lr <- valid
+
+train.n.lr <- train.n
+train.n.lr.rose <- train.n.rose
+valid.n.lr <- valid.n
+```
+
+## Generic Function
+```{r}
+loreg_m <- function(X, Y, cutoff){
+  options(scipen = 0)
+  set.seed(2021)
+  # Model
+  if (!require("lattice")) install.packages("lattice")
+  lg.reg <- glm(Florence ~ ., data = X, family = "binomial")
+  # print(summary(lg.reg))
+    # Predict
+  lg.reg.pred <- predict(lg.reg, Y)
+    # Evaluate
+  if (!require("caret")) install.packages("caret")
+  library(caret)
+  confusionMatrix(factor(ifelse(lg.reg.pred > cutoff, 1, 0)), factor(Y$Florence), positive = "0")
+  # plot(lg.reg, which = 1:2)  
+} 
+```
+
+## Imbalanced Full
+
+```{r}
+lr_cm_i0 <- loreg_m(train.n.lr[, col0], valid.n.lr[, col0], 0.5)
+```
+
+## Balanced Full
+
+```{r}
+lr_cm_b0 <- loreg_m(train.n.lr.rose[, col0], valid.n.lr[, col0], 0.5)
+```
+
+=> Two predictor variables are perfectly correlated.
+
+## Imbalanced Set 1
+
+```{r}
+lr_cm_i1 <- loreg_m(train.n.lr[, col1], valid.n.lr[, col1], 0.5)
+```
+
+## Balanced Set 1
+
+```{r}
+lr_cm_b1 <- loreg_m(train.n.lr.rose[, col1], valid.n.lr[, col1], 0.5)
+```
+
+## Imbalanced Set 2
+
+```{r}
+lr_cm_i2 <- loreg_m(train.n.lr[, col2], valid.n.lr[, col2], 0.5)
+```
+
+## Balanced Set 2
+
+```{r}
+lr_cm_b2 <- loreg_m(train.n.lr.rose[, col2], valid.n.lr[, col2], 0.5)
+```
+
+## LR CM
+
+```{r}
+options(scipen = 0)
+lr_cm_i0
+lr_cm_i1
+lr_cm_i2
+lr_cm_b0
+lr_cm_b1
+lr_cm_b2
+```
+
+
+## LR CM Plot
+
+```{r}
+lr_cmp <- function(cm, title) {
+  fourfoldplot(cm, color = c("cornflowerblue", "red2"),
+               margin = 1, space = 0.3,
+               conf.level = 0, main = title)
+}
+my.par() %>% par(mfrow = c(2, 3),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(2,4,2,0) + 0.1
+                 )
+lr_cmp(lr_cm_i0$table, "Model B")
+lr_cmp(lr_cm_i1$table, "Model C")
+lr_cmp(lr_cm_i2$table, "Model D")
+lr_cmp(lr_cm_b0$table, "Model E")
+lr_cmp(lr_cm_b1$table, "Model F")
+lr_cmp(lr_cm_b2$table, "Model G")
+```
+
+# k-Nearest Neighbors
+
+## k-Nearest Neighbors (knn) Data Sets
+
+```{r}
+train.knn <- train
+train.knn.rose <- train.rose
+valid.knn <- valid
+```
+
+## Optimal K
+
+```{r}
+k_opt <- sqrt(nrow(train.knn))/2
+k_opt
+```
+
+```{r}
+knn_ks <- function(X, Y, att, seq_i=1, seq_j=k_opt, seq_step=1) {
+  library(caret); library(FNN); library(class)
+  library(gmodels); library(e1071); library(ggplot2)
+  options(scipen = 0)
+  set.seed(2021)
+  accuracy <- data.frame(k = seq(seq_i, seq_j, seq_step), accuracy = rep(0, k_opt))
+  for (i in seq_i:seq_j) {
+    knn.pred <- knn(X[, att], Y[, att], 
+                    cl = X[, "Florence"], k = i)
+    accuracy[i, 2] <- confusionMatrix(knn.pred,
+                                      factor(Y[, "Florence"]),
+                                      positive = '0')$overall[1]
+  }
+  accuracy
+}
+```
+
+```{r}
+knn_e <- function(X, Y, att, i){
+  library(caret); library(FNN); library(class)
+  library(gmodels); library(e1071); library(ggplot2)
+  options(scipen = 0)
+  set.seed(2021)
+  knn_pred <- knn(X[, att], Y[, att], cl = X[, "Florence"], k = i)
+  confusionMatrix(factor(knn_pred),
+                  factor(Y$Florence), 
+                  positive = "0")
+}
+```
+
+## k's Accuracies
+
+```{r}
+knn_i0 <- knn_ks(train.knn, valid.knn, var0) #5
+knn_b0 <- knn_ks(train.knn.rose, valid.knn[, -1], var0) #21
+knn_i1 <- knn_ks(train.knn[, col1], valid.knn[, col1], var1) #3
+knn_b1 <- knn_ks(train.knn.rose[, col1], valid.knn[, col1], var1) #13
+knn_i2 <- knn_ks(train.knn[, col2], valid.knn[, col2], var2) #9
+knn_b2 <- knn_ks(train.rose[, col2], valid[, col2], var2) #9
+```
+
+## Plot k's Accuracies
+
+```{r}
+my.par() %>% par(mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(4,4,0,0) + 0.1
+                 )
+plot(knn_i0, bty = "n", type = "n", 
+     xlim = c(0, 30), ylim = c(0.5, 1.05), 
+     xlab = "k", ylab = "Accuracy",
+     yaxt = "n")
+axis(2, at = seq(0.5, 1.0, 0.1), 
+     labels = format(seq(0.5, 1.0, 0.1), digits = 2))
+lines(knn_i0, type = "b", pch = 18, lwd = 2, col = pal[1])
+lines(knn_i1, type = "b", pch = 18, lwd = 2, col = pal[2])
+lines(knn_i2, type = "b", pch = 18, lwd = 2, col = pal[3])
+lines(knn_b0, type = "b", pch = 18, lwd = 2, col = pal[4])
+lines(knn_b1, type = "b", pch = 18, lwd = 2, col = pal[5])
+lines(knn_b2, type = "b", pch = 18, lwd = 2, col = pal[6])
+legend("top", bty = "n",
+       legend = c("H", "I", "J", "K", "L", "M"),
+       title = "MODELS", cex = 1.5,
+       col = pal[1:6], horiz = TRUE,
+       lty = 1, lwd = 2, pch = 18
+       )
+```
+
+## KNN CM
+
+```{r}
+knn_e_i0 <- knn_e(train.knn, valid.knn, col0, 5) #5
+knn_e_b0 <- knn_e(train.knn.rose, valid.knn, col0, 21) #21
+knn_e_i1 <- knn_e(train.knn[, col1], valid.knn[, col1], var1, 3) #3
+knn_e_b1 <- knn_e(train.knn.rose[, col1], valid.knn[, col1], var1, 13) #13
+knn_e_i2 <- knn_e(train.knn[, col2], valid.knn[, col2], var2, 9) #9
+knn_e_b2 <- knn_e(train.rose[, col2], valid[, col2], var2, 9) #9
+```
+
+```{r}
+knn_e_i0
+knn_e_i1
+knn_e_i2
+knn_e_b0
+knn_e_b1
+knn_e_b2
+```
+
+
+## KNN CM Plot
+
+```{r}
+knn_cmp <- function(cm, title) {
+  fourfoldplot(cm, color = c("cornflowerblue", "red2"),
+               margin = 1, space = 0.3,
+               conf.level = 0, main = title)
+}
+my.par() %>% par(mfrow = c(2, 3),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(2,4,2,0) + 0.1
+                 )
+knn_cmp(knn_e_i0$table, "Model H: k = 5")
+knn_cmp(knn_e_i1$table, "Model I: k = 21")
+knn_cmp(knn_e_i2$table, "Model J: k = 3")
+knn_cmp(knn_e_b0$table, "Model K: k = 13")
+knn_cmp(knn_e_b1$table, "Model L: k = 9")
+knn_cmp(knn_e_b2$table, "Model M: k = 9")
+```
+
+
+# Clean up
+
+```{r}
+rm(list = ls())
+cat("\014")
+```

@@ -1,0 +1,307 @@
+---
+title: "Bankruptcy Analysis"
+author: "Mandy HP Nguyen"
+date: "12/17/2021"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+  html_document:
+    theme: paper
+    highlight: breezedark
+    code_folding: hide
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    number_sections: yes
+  word_document:
+    toc: yes
+    toc_depth: '4'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Environment Setting
+
+## Load Mandy's Functions
+
+```{r}
+source("https://raw.githubusercontent.com/mandyhpnguyen/Mandy-Functions/main/M.R-Funcs/general.R")
+```
+
+## Load Packages
+
+```{r}
+pkgs <- c(
+  "beepr",
+  # General pkgs:
+  "tidyverse", "dplyr", "summarytools", "reshape2", "pastecs", "ROSE",
+  # Analytics pkgs:
+  "forecast", "zoo", "scorecard",
+  # Evaluation pkgs:
+  "caret", "DT", "lift", "gains", "gt", "cvms","tibble", "fourfoldplot",
+  # Visualization pkgs:
+  "RColorBrewer", "hrbrthemes", "knitr", "showtext", "sysfonts",
+  "ggfortify", "ggplot2", "corrplot", "GGally", "viridis",
+  "lattice", "grid", "cowplot", "Amelia"
+)
+suppressMessages(suppressWarnings(loadpkg(pkgs)))
+```
+
+## Set fonts
+
+```{r}
+# Load the main font I used in my paper to plot charts for standardization
+windowsFonts(cambria = windowsFont("Cambria"))
+my.par <- function() {
+  options(scipen = 999)
+  par(mfrow = c(1, 1),
+      family = "cambria", 
+      cex.main = 1.25, cex.lab = 1.25, cex.axis = 1.25)
+}
+```
+
+## Color Scheme
+
+```{r}
+pal <- c("cornflowerblue", "orange", "red2", "forestgreen", "mediumorchid1", "tomato3", "cadetblue1")
+```
+
+# Collect Data
+
+```{r}
+book <- read.csv("https://raw.githubusercontent.com/mandyhpnguyen/MS-Data-Analytics-Datasets/main/Data%20Mining/CharlesBookClub.csv")
+```
+
+# Pre-Process Data
+
+```{r}
+cbc <- book
+```
+
+## Compute RFM_score
+
+```{r}
+cbc$RFM_score <- paste(cbc$Rcode, cbc$Fcode, cbc$Mcode)
+cbc$RFM_score <- gsub(" ", "", cbc$RFM_score)
+cbc$RFM_score <- as.factor(cbc$RFM_score)
+cbc[1:10, "RFM_score"]
+```
+
+## Factor Categorical Attributes
+
+```{r}
+cbc[, "Gender"] <- factor(cbc[, "Gender"])
+cbc[, "Yes_Florence"] <- factor(cbc[, "Yes_Florence"], levels = c(1, 0))
+cbc[, "No_Florence"] <- factor(cbc[, "No_Florence"], levels = c(0, 1))
+
+cbc[, "Mcode"] <- factor(cbc[, "Mcode"])
+cbc[, "Rcode"] <- factor(cbc[, "Rcode"])
+cbc[, "Fcode"] <- factor(cbc[, "Fcode"])
+```
+
+# Parition
+
+```{r}
+set.seed(2021)
+train.index <- sample(1:nrow(cbc), 0.7*nrow(cbc))
+train <- cbc[train.index, ]
+valid <- cbc[-train.index, ]
+```
+
+# RFM Analysis
+
+## Compute Response Rate
+
+```{r}
+# Response rate for training data
+# Fix height issue: https://stackoverflow.com/questions/16121903/r-barplot-y-axis-scale-too-short
+rr_bar <- function(X, Z=""){
+  barplot(height = X, space = .2,
+          horiz = FALSE, density = 50, angle = 60,
+          col = c("red2", "cornflowerblue"), border = NA,
+          ylim = range(pretty(c(0, X))),
+          xlab = 'Florence',
+          ylab = 'Frequency of Response Rate',
+          main = Z
+  ) %>% 
+    text(0, y = X, labels = paste0(round(X*100,2), "%"),
+         cex = 1, pos = 3)
+}
+```
+
+```{r}
+my.par() %>% par(mfrow = c(1, 3))
+rr_bar(prop.table(table(cbc$Florence)), 
+                   "Raw Set")
+rr_bar(prop.table(table(train$Florence)), 
+                   "Training Set")
+rr_bar(prop.table(table(valid$Florence)),
+                   "Validation Set")
+```
+
+### Response rate of Whole Data Set
+
+```{r}
+toprr_cbc <- cbc %>% 
+  group_by(RFM_score) %>% 
+  summarise(Yes = length(Yes_Florence[Yes_Florence == '1']),
+            No = length(No_Florence[No_Florence == '1']),
+            Response_Rate = round(Yes / (Yes + No), 3),
+            Count = length(RFM_score)
+  ) %>% 
+  arrange(desc(Response_Rate)) %>% 
+  as.data.frame()
+toprr_cbc
+```
+```{r}
+setwd("C:/One Drives/OneDrive - Webster University/Webster Classes/21F_CSDA 6010_Practicum")
+options(scipen = 0, digits = 2)
+toprr_cbc %>% write.csv("toprr_cbc.csv", row.names = TRUE)
+```
+
+### Response Rate of Training
+
+```{r}
+toprr_train <- train %>% 
+  group_by(RFM_score) %>% 
+  summarise(Yes = length(Yes_Florence[Yes_Florence == '1']),
+            No = length(No_Florence[No_Florence == '1']),
+            Response_Rate = round(Yes / (Yes + No), 3),
+            Count = length(RFM_score)
+  ) %>% 
+  arrange(desc(Response_Rate)) %>% 
+  as.data.frame()
+```
+
+```{r}
+setwd("C:/One Drives/OneDrive - Webster University/Webster Classes/21F_CSDA 6010_Practicum")
+options(scipen = 0, digits = 2)
+toprr_train %>% write.csv("toprr_train.csv", row.names = TRUE)
+```
+
+### Response Rate of Validation
+
+```{r}
+toprr_valid <- valid %>% 
+  group_by(RFM_score) %>% 
+  summarise(Yes = length(Yes_Florence[Yes_Florence == '1']),
+            No = length(No_Florence[No_Florence == '1']),
+            Response_Rate = round(Yes / (Yes + No), 3),
+            Count = length(RFM_score)
+  ) %>% 
+  arrange(desc(Response_Rate)) %>% 
+  as.data.frame()
+```
+
+```{r}
+setwd("C:/One Drives/OneDrive - Webster University/Webster Classes/21F_CSDA 6010_Practicum")
+options(scipen = 0, digits = 2)
+toprr_valid %>% write.csv("toprr_valid.csv", row.names = TRUE)
+```
+
+## Evaluate with different cut-offs
+
+## Generic Functions
+
+```{r}
+RFM_emore <- function(cut_off, equation="") {
+  cat(">> Valid >= Cut-off =", cut_off, "\n",
+      ifelse(equation == "", "", paste0("> Equation: ", equation)), "\n\n")
+  train_c <- toprr_train
+  train_c$Response <- factor(ifelse(train_c$Response_Rate >= cut_off, "Yes", "No"))
+  valid_c <- toprr_valid
+  valid_c$Response_V <- factor(ifelse(valid_c$Response_Rate >= cut_off, "Yes", "No"))
+  index1 <- valid_c$RFM_score
+  valid_c$Response_T <- train_c[index1, ]$Response
+  valid_c <- valid_c[, c(1, 4:7)]
+  confusionMatrix(valid_c$Response_T, valid_c$Response_V)
+}
+```
+
+```{r}
+RFM_eless <- function(cut_off, equation="") {
+  cat(">> Valid <= Cut-off =", cut_off, "\n",
+      ifelse(equation == "", "", paste0("> Equation: ", equation)), "\n\n")
+  train_c <- toprr_train
+  train_c$Response <- factor(ifelse(train_c$Response_Rate <= cut_off, "Yes", "No"))
+  valid_c <- toprr_valid
+  valid_c$Response_V <- factor(ifelse(valid_c$Response_Rate <= cut_off, "Yes", "No"))
+  index1 <- valid_c$RFM_score
+  valid_c$Response_T <- train_c[index1, ]$Response
+  valid_c <- valid_c[, c(1, 4:7)]
+  confusionMatrix(valid_c$Response_T, valid_c$Response_V)
+}
+```
+
+## Means
+
+```{r}
+mean(toprr_cbc$Response_Rate)
+mean(toprr_train$Response_Rate)
+```
+
+## More Comparison
+
+```{r}
+more1 <- RFM_emore(mean(toprr_train$Response_Rate), "mean(toprr_train$Response_Rate)")
+more2 <- RFM_emore(mean(toprr_train$Response_Rate)*2, "mean(toprr_train$Response_Rate)*2")
+more3 <- RFM_emore(mean(toprr_cbc$Response_Rate), "mean(toprr_cbc$Response_Rate)")
+more4 <- RFM_emore(mean(toprr_cbc$Response_Rate)*2, "mean(toprr_cbc$Response_Rate)*2")
+```
+
+## Less Comparison
+
+```{r}
+less1 <- RFM_eless(mean(toprr_train$Response_Rate), "mean(toprr_train$Response_Rate)")
+less2 <- RFM_eless(mean(toprr_train$Response_Rate)*2, "mean(toprr_train$Response_Rate)*2")
+less3 <- RFM_eless(mean(toprr_cbc$Response_Rate), "mean(toprr_cbc$Response_Rate)")
+less4 <- RFM_eless(mean(toprr_cbc$Response_Rate)*2, "mean(toprr_cbc$Response_Rate)*2")
+```
+
+## CM Results
+
+```{r}
+more1
+more2
+more3
+more4
+less1
+less2
+less3
+less4
+```
+
+
+## CM Plots
+
+```{r}
+rfm_cmp <- function(cm, title) {
+  fourfoldplot(cm, color = c("cornflowerblue", "red2"),
+               margin = 1, space = 0.3,
+               conf.level = 0, main = title)
+}
+my.par() %>% par(mfrow = c(2, 4),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(2,4,2,0) + 0.1
+                 )
+rfm_cmp(more1$table, "A-1")
+rfm_cmp(more2$table, "A-2")
+rfm_cmp(more3$table, "A-3")
+rfm_cmp(more4$table, "A-4")
+rfm_cmp(less1$table, "A-5")
+rfm_cmp(less2$table, "A-6")
+rfm_cmp(less3$table, "A-7")
+rfm_cmp(less4$table, "A-8")
+```
+
+
+# Clean up
+
+```{r}
+rm(list = ls())
+cat("\014")
+```

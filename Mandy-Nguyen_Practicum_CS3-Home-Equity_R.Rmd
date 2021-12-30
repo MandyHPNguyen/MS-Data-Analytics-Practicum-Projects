@@ -1,0 +1,1313 @@
+---
+title: "Home Equity Loan Analysis"
+author: "Mandy HP Nguyen"
+date: "12/17/2021"
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+  html_document:
+    theme: paper
+    highlight: breezedark
+    code_folding: hide
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    number_sections: yes
+  word_document:
+    toc: yes
+    toc_depth: '4'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Environment Setting
+
+## Load Mandy's Functions
+
+```{r}
+source("https://raw.githubusercontent.com/mandyhpnguyen/Mandy-Functions/main/M.R-Funcs/general.R")
+```
+
+## Load Packages
+
+```{r}
+pkgs <- c(
+  "beepr",
+  # General pkgs:
+  "tidyverse", "dplyr", "summarytools", "reshape2", "pastecs", "ROSE",
+  # Analytics pkgs:
+  "forecast", "zoo", "scorecard",
+  # Evaluation pkgs:
+  "caret", "DT", "lift", "gains", "gt", "cvms","tibble", "fourfoldplot",
+  # Visualization pkgs:
+  "RColorBrewer", "hrbrthemes", "knitr", "showtext", "sysfonts",
+  "ggfortify", "ggplot2", "corrplot", "GGally", "viridis",
+  "lattice", "grid", "cowplot", "Amelia"
+)
+suppressMessages(suppressWarnings(loadpkg(pkgs)))
+```
+
+## Set fonts
+
+```{r}
+# Load the main font I used in my paper to plot charts for standardization
+windowsFonts(cambria = windowsFont("Cambria"))
+my.par <- function() {
+  options(scipen = 999)
+  par(mfrow = c(1, 1),
+      family = "cambria", 
+      cex.main = 1.25, cex.lab = 1.25, cex.axis = 1.25)
+}
+```
+
+## Color Scheme
+
+```{r}
+pal <- c("cornflowerblue", "orange", "red2", "forestgreen", "mediumorchid1", "tomato3", "cadetblue1")
+```
+
+# Collect Data
+
+```{r}
+hmeq <- read.csv("https://raw.githubusercontent.com/mandyhpnguyen/MS-Data-Analytics-Datasets/main/Practicum/hmeq.csv")
+# setwd("C:/One Drives/OneDrive - Webster University/Webster Classes/21F_CSDA 6010_Practicum")
+# hmeq <- read.csv("hmeq.csv")
+```
+
+```{r}
+View(hmeq)
+str(hmeq)
+datatable(hmeq)
+```
+
+```{r}
+setwd("C:/One Drives/OneDrive - Webster University/Webster Classes/21F_CSDA 6010_Practicum")
+options(scipen = 0, digits = 2)
+round(stat.desc(hmeq), 0) %>% write.csv("hmeq_descr.csv", row.names = TRUE)
+```
+
+# Data Cleaning and Harmonization
+
+## Overall
+
+```{r}
+data <- hmeq
+data$STATUS <- factor(ifelse(data$BAD == 1, "defaulted", "paid"),
+                      levels = c("defaulted", "paid"),)
+str(data)
+View(data)
+```
+
+## Check Missing Values
+
+```{r}
+# Total Missing Values Cells
+sum(is.na(data))
+sum(apply(data, 1, anyNA))
+```
+
+```{r}
+# Missing Value Distribution
+data.na <- data[apply(data, 1, anyNA), ]
+table(data.na$BAD)
+```
+
+```{r}
+# Total number of Missing Values of Observations
+count(data.na)
+
+# Percentage of Missing Value
+round((count(data.na)/count(data))*100, 2)
+
+# Remaining Data
+count(data) - count(data.na)
+round(((count(data) - count(data.na))/count(data))*100, 2)
+```
+
+```{r}
+# Bar Plot of Missing Value Distribution
+my.par()
+na.aggr <- data.frame(sum = c("Defaulted", "Paid", "Total Rows", "Total Cells"),
+                 count = c(880, 1565, 2445, 4740))
+
+barplot(height = na.aggr$count,
+        ylim = c(0, 5100), cex.lab = 0.75,
+        names = na.aggr$sum,
+        col = c("red2", "cornflowerblue", "forestgreen", "orange")) %>% 
+  text(0, y = na.aggr$count,
+       labels = na.aggr$count,
+       pos = 3, cex = 1)
+```
+
+```{r}
+colSums(is.na(data))
+```
+
+Heat Map of Missing Value
+
+```{r}
+my.par()
+
+missmap(data,
+        col = c("red2", "cornflowerblue"),
+        main = "",
+        legend = FALSE,
+        x.cex = 0.8, y.cex = 0.8, 
+        gap.xaxis = 1, x.las = 2
+        )
+# Preference for Reference: http://www.sthda.com/english/wiki/add-legends-to-plots-in-r-software-the-easiest-way
+```
+
+Create new data frame without missing value
+
+```{r}
+data.omit <- na.omit(data)
+str(data.omit)
+```
+
+```{r}
+setwd("C:/One Drives/OneDrive - Webster University/Webster Classes/21F_CSDA 6010_Practicum")
+options(scipen = 0, digits = 2)
+data.omit %>% write.csv("hmeq_omit.csv", row.names = TRUE)
+```
+
+
+## Check Typographical Errors
+
+```{r}
+my.par() %>% par(mfrow = c(1, 1),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(2,2,2,0) + 0.1
+                 )
+
+reason.bp <- plot(as.factor(data$REASON),
+                  ylim = c(0, 4200),
+                  main = "",
+                  col = c("red2", "cornflowerblue", "forestgreen"))
+text(x = reason.bp, y = table(as.factor(data$REASON)),
+     labels = table(as.factor(data$REASON)),
+     pos = 3, cex = 1)
+```
+
+```{r}
+my.par() %>% par(mfrow = c(1, 1),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(0,0,0,0) + 0.1
+                 ) 
+pie(table(data$REASON),
+    labels = paste(c("","DebtCon", "HomeImp"),
+                   round(prop.table(table(data$REASON)), 2)*100, "%"),
+    col = c("red2", "cornflowerblue", "forestgreen")
+    )
+```
+
+```{r}
+my.par() %>% par(mfrow = c(1, 1),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(2,5,2,0) + 0.1
+                 )
+job.bp <- plot(as.factor(data$JOB),
+                  ylim = c(0, 2500),
+                  main = "",
+                  col = pal)
+text(x = job.bp, y = table(as.factor(data$JOB)),
+     labels = table(as.factor(data$JOB)),
+     pos = 3, cex = 1)
+```
+
+```{r}
+my.par() %>% par(mfrow = c(1, 1),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(0,0,0,0) + 0.1
+                 ) 
+pie(table(data$JOB),
+    labels = paste(c("", "Mgr", "Office", "Other", "ProfExe", "Sales", "Self"),
+                   round(prop.table(table(data$JOB)), 2)*100, "%"),
+    col = pal
+    )
+```
+
+## Check Outliers
+
+### Plot Outliers
+
+```{r}
+out.bp <- function(dataset) {
+  my.par() %>% par(mfrow = c(1, 10),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(0.5,2.5,5,0) + 0.1
+                 )
+  i = 2
+  for (i in 2:length(colnames(dataset))) {
+    boxplot(dataset[, i],
+            main = colnames(dataset)[i],
+            cex.main = 2, cex.axis = 2,
+            col = "red3")
+    i = i + 1
+  } 
+}
+```
+
+### Raw Set
+
+```{r}
+my.par()
+out.bp(data[, -c(5, 6, 14)])
+```
+
+### No Missing Value Set
+
+```{r}
+my.par()
+out.bp(data.omit[, -c(5, 6, 14)])
+```
+
+### Remove Outliers
+
+```{r}
+# Remove Outliers Function
+outliers_remover <- function(a){
+  df <- a
+  aa <- c()
+  count <- 1
+  for (i in 1:ncol(df)) {
+    if (is.numeric(df[,i])) {
+      Q3 <- quantile(df[,i], 0.75, na.rm = TRUE)
+      Q1 <- quantile(df[,i], 0.25, na.rm = TRUE) 
+      IQR <- Q3 - Q1  #IQR(df[,i])
+      upper <- Q3 + 1.5 * IQR
+      lower <- Q1 - 1.5 * IQR
+      for (j in 1:nrow(df)) {
+        if (is.na(df[j,i]) == TRUE) {
+          next
+        }
+        else if (df[j,i] > upper | df[j,i] < lower) {
+          aa[count] <- j
+          count <- count + 1
+        }
+      }
+    }
+  }
+  df <- df[-aa,]
+}
+```
+
+```{r}
+data.na.clean <- data
+data.na.clean <- outliers_remover(data.na.clean)
+data.clean <- data.omit
+data.clean <- outliers_remover(data.clean)
+```
+
+```{r}
+dim(data.na.clean)
+```
+
+
+```{r}
+dim(data.clean)
+```
+
+
+```{r}
+my.par()
+out.bp(data.na.clean[, -c(5, 6, 14)])
+```
+
+```{r}
+out.bp(data.clean[, -c(5, 6, 14)])
+```
+
+### Clear Outliers Problem
+
+```{r}
+dim(data.clean)
+```
+```{r}
+table(data.omit$DEROG)
+table(data.clean$DEROG)
+table(data.omit$DELINQ)
+table(data.clean$DELINQ)
+table(data.omit$NINQ)
+table(data.clean$NINQ)
+table(data.omit$CLNO)
+table(data.clean$CLNO)
+length(table(data.omit$CLNO))
+length(table(data.clean$CLNO))
+```
+
+```{r}
+data.omit.group <- data.omit
+data.omit.group$DEROG[data.omit.group$DEROG > 2] <- 2
+data.omit.group$DELINQ[data.omit.group$DELINQ > 2] <- 2
+data.omit.group$NINQ[data.omit.group$NINQ > 3] <- 3
+```
+
+```{r}
+table(data.omit.group$DEROG)
+table(data.omit.group$DELINQ)
+table(data.omit.group$NINQ)
+```
+
+```{r}
+data.omit.group.clean <- outliers_remover(data.omit.group)
+str(data.omit.group.clean)
+```
+
+```{r}
+out.bp(data.omit.group.clean[, -c(5, 6, 14)])
+```
+
+```{r}
+table(data.omit.group.clean$DEROG)
+table(data.omit.group.clean$DELINQ)
+table(data.omit.group.clean$NINQ)
+```
+
+```{r}
+out.bp(data.omit.group[, -c(5, 6, 14)])
+```
+
+
+```{r}
+setwd("C:/One Drives/OneDrive - Webster University/Webster Classes/21F_CSDA 6010_Practicum")
+options(scipen = 0, digits = 2)
+round(stat.desc(data.omit.group), 0) %>% write.csv("hmeq_omit_group_stats.csv", row.names = TRUE)
+```
+
+## Cleaning
+
+### Replace Empty Spaces
+
+```{r}
+data$REASON[data$REASON == ""] <- "Other"
+data$REASON <- factor(data$REASON)
+data$JOB[data$JOB == ""] <- "Other"
+data$JOB <- factor(data$JOB)
+
+data$.REASON <- ifelse(data$REASON == "DebtCon", 1,
+                       ifelse(data$REASON == "HomeImp", 2, 3))
+
+data$.JOB <- ifelse(data$JOB == "Other", 1,
+                    ifelse(data$JOB == "ProfExe", 2,
+                           ifelse(data$JOB == "Office", 3,
+                                  ifelse(data$JOB == "Mgr", 4,
+                                         ifelse(data$JOB == "Self", 5, 6
+                                                       )))))
+```
+
+```{r}
+data.omit$REASON[data.omit$REASON == ""] <- "Other"
+data.omit$REASON <- factor(data.omit$REASON)
+data.omit$JOB[data.omit$JOB == ""] <- "Other"
+data.omit$JOB <- factor(data.omit$JOB)
+
+data.omit$.REASON <- ifelse(data.omit$REASON == "DebtCon", 1,
+                       ifelse(data.omit$REASON == "HomeImp", 2, 3))
+
+data.omit$.JOB <- ifelse(data.omit$JOB == "Other", 1,
+                    ifelse(data.omit$JOB == "ProfExe", 2,
+                           ifelse(data.omit$JOB == "Office", 3,
+                                  ifelse(data.omit$JOB == "Mgr", 4,
+                                         ifelse(data.omit$JOB == "Self", 5, 6
+                                                       )))))
+```
+
+```{r}
+data.omit.group$REASON[data.omit.group$REASON == ""] <- "Other"
+data.omit.group$REASON <- factor(data.omit.group$REASON)
+data.omit.group$JOB[data.omit.group$JOB == ""] <- "Other"
+data.omit.group$JOB <- factor(data.omit.group$JOB)
+
+data.omit.group$.REASON <- ifelse(data.omit.group$REASON == "DebtCon", 1,
+                       ifelse(data.omit.group$REASON == "HomeImp", 2, 3))
+
+data.omit.group$.JOB <- ifelse(data.omit.group$JOB == "Other", 1,
+                    ifelse(data.omit.group$JOB == "ProfExe", 2,
+                           ifelse(data.omit.group$JOB == "Office", 3,
+                                  ifelse(data.omit.group$JOB == "Mgr", 4,
+                                         ifelse(data.omit.group$JOB == "Self", 5, 6
+                                                       )))))
+```
+
+```{r}
+setwd("C:/One Drives/OneDrive - Webster University/Webster Classes/21F_CSDA 6010_Practicum")
+options(scipen = 0, digits = 2)
+data.omit %>% write.csv("hmeq_omit_final.csv", row.names = TRUE)
+```
+
+```{r}
+setwd("C:/One Drives/OneDrive - Webster University/Webster Classes/21F_CSDA 6010_Practicum")
+options(scipen = 0, digits = 2)
+data.omit.group %>% write.csv("hmeq_omit_group_final.csv", row.names = TRUE)
+```
+
+
+# Attribute Exploration
+
+```{r}
+df <- data.omit.group
+str(df)
+summary(df)
+```
+
+```{r}
+## Variable lists
+cat.vars <- c(15, 16)
+```
+
+
+One-dimensional (uni-variate) or a multidimensional (multivariate) Analysis
+
+## Target Attribute
+
+```{r}
+my.par() %>% par(mfrow = c(1, 2),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(2,4,0,0) + 0.1
+                 )
+
+stt.bp.raw <- plot(data$STATUS,
+                   ylim = c(0, 5500),
+                   ylab = "Frequency in Raw Dataset",
+                   main = "",
+                   col = c("red2", "cornflowerblue"))
+text(x = stt.bp.raw, y = table(data$STATUS),
+     labels = paste(table(data$STATUS), "-",
+                    round(prop.table(table(data$STATUS))*100, 2),"%"),
+     pos = 3, cex = 1)
+# text(x = stt.bp.raw, y = c(1400, 4970),
+#      labels = paste(round(prop.table(table(data$STATUS))*100, 2),"%"),
+#      pos = 3, cex = 1)
+
+stt.bp.clean <- plot(df$STATUS,
+     ylim = c(0, 5500),
+     ylab = "Frequency in Clean Dataset",
+     main = "",
+     col = c("red2", "cornflowerblue"))
+text(x = stt.bp.clean, y = table(df$STATUS),
+     labels = paste(table(df$STATUS), "-", 
+                    round(prop.table(table(df$STATUS))*100, 2),"%"),
+     pos = 3, cex = 1)
+# text(x = stt.bp.clean, y = c(300, 2400),
+#      labels = paste(round(prop.table(table(df$STATUS))*100, 2),"%"),
+#      pos = 3, cex = 1)
+```
+
+## Predictor Attributes
+
+### Target against Categorical
+
+```{r}
+pred.box_f <- function(i) {
+  explore.vars <- c(2:4, 15:16, 7:13)
+  j = explore.vars[i]
+  ggplot(df, aes(fill = STATUS,
+               y = df[, j],
+               x = STATUS)) +
+  ggtitle(paste(colnames(df)[j], "against STATUS")) +
+  geom_boxplot() + theme_minimal() +
+  scale_fill_manual(values = c("red2", "cornflowerblue")) +
+  theme(text = element_text(size = 12, family = "cambria")) +
+  theme(axis.title.y = element_blank(),
+        axis.ticks.y = element_blank(),
+        axis.title.x = element_blank(),
+        legend.position = "none")
+}
+```
+
+```{r}
+box.LOAN <- pred.box_f(1)
+box.MORTDUE <- pred.box_f(2)
+box.VALUE <- pred.box_f(3)
+box.REASON <- pred.box_f(4)
+box.JOB <- pred.box_f(5)
+box.YOJ <- pred.box_f(6)
+box.DEROG <- pred.box_f(7)
+box.DELINQ <- pred.box_f(8)
+box.CLAGE <- pred.box_f(9)
+box.NINQ <- pred.box_f(10)
+box.CLNO <- pred.box_f(11)
+box.DEBTINC <- pred.box_f(12)
+```
+
+```{r}
+my.par()
+cowplot::plot_grid(box.LOAN, box.MORTDUE, box.VALUE, box.REASON, 
+                   box.JOB, box.YOJ, box.DEBTINC, box.DEROG,
+                   box.DELINQ, box.CLAGE, box.NINQ, box.CLNO
+                   )
+```
+
+
+### Target against Numerical
+
+```{r}
+rm(i)
+pred.bar_f <- function(df, i) {
+  ggplot(df, aes(fill = STATUS, x = df[, i])) +
+  labs(title = colnames(df)[i], y = "Percentage") + 
+  geom_bar(position = "fill") +
+  theme_classic() +
+  scale_fill_manual(values = c("red2", "cornflowerblue")) +
+  theme(text = element_text(size = 12, family = "cambria")) +
+  theme(axis.title.x = element_blank(),
+        legend.position = "top")
+}
+```
+
+
+```{r}
+bar.REASON <- pred.bar_f(df, 5)
+bar.JOB <- pred.bar_f(df, 6)
+bar.DEROG <- pred.bar_f(df, 8)
+bar.DELINQ <- pred.bar_f(df, 9)
+bar.NINQ <- pred.bar_f(df, 11)
+```
+
+```{r}
+cowplot::plot_grid(bar.DEROG, bar.DELINQ, bar.NINQ) %>% suppressWarnings()
+```
+
+```{r}
+cowplot::plot_grid(bar.REASON, bar.JOB) %>% suppressWarnings()
+```
+
+
+## Varible Selection
+
+### Correlation Matrix
+
+```{r}
+corr.var <- c(1:4, 7:13, 15, 16)
+corr.df <- df[, corr.var]
+corr.mat <- round(cor(corr.df),2)
+testRes = cor.mtest(corr.mat, conf.level = 0.95)
+```
+
+```{r}
+my.par()
+corrplot(corr.mat, method = "color", 
+         type = "full", tl.col = "black")$corrPos -> corrp
+text(corrp$x, corrp$y, round(corrp$corr, 2))
+```
+
+### Stepwise Regression
+
+```{r}
+loreg_m_ic <- function(X, Z){
+  options(scipen = 0)
+  set.seed(2021)
+  lg.reg <- glm(STATUS ~ ., data = X, family = "binomial")
+  # step(lg.reg, direction = Z)
+  summary(step(lg.reg, direction = Z))
+}
+```
+
+```{r}
+options(scipen = 0)
+loreg_m_ic(data.omit[, -c(1, 15, 16)], "both")
+```
+
+### Information Value of Attributes
+
+```{r}
+# library(scorecard)
+iv.df <- as.data.frame(iv(df[, -c(5:6, 14)],
+                          y = "BAD", positive = "BAD|1")) %>% arrange()
+print(iv.df)
+```
+
+```{r}
+my.par()
+barplot(height = iv.df$info_value, names = iv.df$variable,
+        ylim = c(0, 0.9), col = pal) %>% 
+  text(0, y = iv.df$info_value,
+       labels = round(iv.df$info_value, 6),
+       pos = 3, cex = 1) %>% suppressWarnings()
+```
+
+### Variables in Use
+
+```{r}
+var1 <- c("STATUS", "LOAN", "CLNO", "YOJ", "DELINQ", "DEROG", "NINQ")
+col1 <- c("LOAN", "CLNO", "YOJ", "DELINQ", "DEROG", "NINQ")
+var2 <- c("STATUS", "CLAGE", "DEBTINC", "DELINQ", "DEROG", "NINQ")
+col2 <- c("CLAGE", "DEBTINC", "DELINQ", "DEROG", "NINQ")
+var <- c(2:4, 7:16)
+col <- c(2:4, 7:13, 15:16)
+
+var.bad <- c(1:4, 7:13, 15:16)
+col.bad <- c(2:4, 7:13, 15:16)
+
+col.rose.k <- c(1:3, 6:12, 14:15)
+```
+
+# Partition
+
+```{r}
+set.seed(2021)
+index <- sample(c(1:dim(df)[1]), dim(df)[1]*0.7)
+train <- df[index, ]
+valid <- df[-index, ]
+```
+
+```{r}
+table(train$STATUS)
+prop.table(table(train$STATUS))
+table(valid$STATUS)
+prop.table(table(valid$STATUS))
+```
+
+
+```{r}
+train.rose <- ROSE(STATUS ~ ., data = train[, -1])$data
+```
+
+```{r}
+table(train.rose$STATUS)
+prop.table(table(train.rose$STATUS))
+```
+
+```{r}
+my.par() %>% par(mfrow = c(1, 3),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(2,4,4,0) + 0.1
+                 )
+
+plot(train$STATUS,
+     ylim = c(0, 2500),
+     ylab = "Frequency",
+     main = "ImBalanced Training Set",
+     col = c("red2", "cornflowerblue")) %>% 
+text(0, y = table(train$STATUS),
+     labels = paste(table(train$STATUS), "-",
+                    round(prop.table(table(train$STATUS))*100, 2),"%"),
+     pos = 3, cex = 1)
+
+plot(train.rose$STATUS,
+     ylim = c(0, 2500),
+     ylab = "Frequency",
+     main = "Balanced Training Set",
+     col = c("red2", "cornflowerblue")) %>% 
+text(0, y = table(train.rose$STATUS),
+     labels = paste(table(train.rose$STATUS), "-",
+                    round(prop.table(table(train.rose$STATUS))*100, 2),"%"),
+     pos = 3, cex = 1)
+
+plot(valid$STATUS,
+     ylim = c(0, 2500),
+     ylab = "Frequency",
+     main = "Validation Set",
+     col = c("red2", "cornflowerblue")) %>% 
+text(0, y = table(valid$STATUS),
+     labels = paste(table(valid$STATUS), "-",
+                    round(prop.table(table(valid$STATUS))*100, 2),"%"),
+     pos = 3, cex = 1)
+```
+```{r}
+my.par() %>% par(mfrow = c(1, 2),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(2,4,3,0) + 0.1
+                 )
+
+stt.bp.train <- plot(train$STATUS,
+                   ylim = c(0, 3000),
+                   ylab = "Frequency in Imbalanced Training Dataset",
+                   main = "",
+                   col = c("red2", "cornflowerblue"))
+text(x = stt.bp.train, y = table(train$STATUS),
+     labels = paste(table(train$STATUS), "-",
+                    round(prop.table(table(train$STATUS))*100, 2),"%"),
+     pos = 3, cex = 1)
+
+stt.bp.valid <- plot(valid$STATUS,
+     ylim = c(0, 3000),
+     ylab = "Frequency in Validation Set",
+     main = "",
+     col = c("red2", "cornflowerblue"))
+text(x = stt.bp.valid, y = table(valid$STATUS),
+     labels = paste(table(valid$STATUS), "-", 
+                    round(prop.table(table(valid$STATUS))*100, 2),"%"),
+     pos = 3, cex = 1)
+
+```
+
+
+
+# Logistic Regression
+
+## Logistic Regression (lr) Data Sets
+
+```{r}
+train.lr <- train
+train.lr.rose <- train.rose
+valid.lr <- valid
+```
+
+
+## Generic Function
+```{r}
+loreg_m <- function(X, Y, cutoff){
+  options(scipen = 0)
+  set.seed(2021)
+  # Model
+  if (!require("lattice")) install.packages("lattice")
+  lg.reg <- glm(STATUS ~ ., data = X, family = "binomial")
+  # print(summary(lg.reg))
+    # Predict
+  lg.reg.pred <- predict(lg.reg, Y)
+    # Evaluate
+  if (!require("caret")) install.packages("caret")
+  library(caret)
+  confusionMatrix(factor(ifelse(lg.reg.pred > cutoff, "paid", "defaulted")), factor(Y$STATUS), positive = 'paid')
+  # plot(lg.reg, which = 1:2)  
+} 
+```
+
+## Imbalanced Full
+
+```{r}
+loreg_m(train.lr, valid.lr, 0.5)
+```
+
+## Balanced Full
+```{r}
+loreg_m(train.lr.rose, valid.lr, 0.5)
+```
+
+
+## Imblanced Set 1
+
+```{r}
+loreg_m(train.lr[, var1], valid.lr[, var1], 0.5)
+```
+
+## Blanced Set 1
+
+```{r}
+loreg_m(train.lr.rose[, var1], valid.lr[, var1], 0.5)
+```
+
+## Imbalanced Set 2
+```{r}
+loreg_m(train.lr[, var2], valid.lr[, var2], 0.5)
+```
+
+## Balanced Set 2
+
+```{r}
+loreg_m(train.lr.rose[, var2], valid.lr[, var2], 0.5)
+```
+
+## LR CM Plot
+
+```{r}
+lr_cmp <- function(cm, title) {
+  fourfoldplot(cm, color = c("cornflowerblue", "red2"),
+               margin = 1, space = 0.3,
+               conf.level = 0, main = title)
+}
+my.par() %>% par(mfrow = c(2, 3),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(2,4,2,0) + 0.1
+                 )
+lr_cmp(loreg_m(train.lr, valid.lr, 0.5)$table, "Model A")
+lr_cmp(loreg_m(train.lr.rose, valid.lr, 0.5)$table, "Model B")
+lr_cmp(loreg_m(train.lr[, var1], valid.lr[, var1], 0.5)$table, "Model C")
+lr_cmp(loreg_m(train.lr.rose[, var1], valid.lr[, var1], 0.5)$table, "Model D")
+lr_cmp(loreg_m(train.lr[, var2], valid.lr[, var2], 0.5)$table, "Model E")
+lr_cmp(loreg_m(train.lr.rose[, var2], valid.lr[, var2], 0.5)$table, "Model F")
+```
+
+# k-Nearest Neighbors
+
+## k-Nearest Neighbors (knn) Data Sets
+
+```{r}
+train.knn <- train
+train.knn.rose <- train.rose
+valid.knn <- valid
+```
+
+## Optimal K
+
+```{r}
+k_opt <- sqrt(nrow(train.knn))/2
+k_opt
+```
+
+```{r}
+knn_ks <- function(X, Y, att, seq_i=1, seq_j=k_opt, seq_step=1) {
+  library(caret); library(FNN); library(class)
+  library(gmodels); library(e1071); library(ggplot2)
+  options(scipen = 0)
+  set.seed(2021)
+  accuracy <- data.frame(k = seq(seq_i, seq_j, seq_step), accuracy = rep(0, k_opt))
+  for (i in seq_i:seq_j) {
+    knn.pred <- knn(X[, att], Y[, att], 
+                    cl = X[, 'STATUS'], k = i)
+    accuracy[i, 2] <- confusionMatrix(knn.pred,
+                                      factor(Y[, 'STATUS']),
+                                      positive = 'paid')$overall[1]
+  }
+  accuracy
+}
+```
+
+```{r}
+knn_i0 <- knn_ks(train.knn, valid.knn, col) %>% suppressWarnings()
+knn_b0 <- knn_ks(train.knn.rose, valid.knn[, -1], col.rose.k) %>% suppressWarnings()
+knn_i1 <- knn_ks(train.knn[, var1], valid.knn[, var1], col1) %>% suppressWarnings()
+knn_b1 <- knn_ks(train.knn.rose[, var1], valid.knn[, var1], col1) %>% suppressWarnings()
+knn_i2 <- knn_ks(train.knn[, var2], valid.knn[, var2], col2) %>% suppressWarnings()
+knn_b2 <- knn_ks(train.rose[, var2], valid[, var2], col2) %>% suppressWarnings()
+```
+
+```{r}
+my.par() %>% par(mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(4,4,0,0) + 0.1
+                 )
+plot(knn_i0, bty = "n", type = "n", 
+     xlim = c(0, 25), ylim = c(0.5, 1.05), 
+     xlab = "k", ylab = "Accuracy",
+     yaxt = "n")
+axis(2, at = seq(0.5, 1.0, 0.1), 
+     labels = format(seq(0.5, 1.0, 0.1), digits = 2))
+lines(knn_i0, type = "b", pch = 18, lwd = 2, col = pal[1])
+lines(knn_i1, type = "b", pch = 18, lwd = 2, col = pal[2])
+lines(knn_i2, type = "b", pch = 18, lwd = 2, col = pal[3])
+lines(knn_b0, type = "b", pch = 18, lwd = 2, col = pal[4])
+lines(knn_b1, type = "b", pch = 18, lwd = 2, col = pal[5])
+lines(knn_b2, type = "b", pch = 18, lwd = 2, col = pal[6])
+legend("top", bty = "n",
+       legend = c("G", "H", "I", "J", "K", "L"),
+       title = "MODELS", cex = 1.5,
+       col = pal[1:6], horiz = TRUE,
+       lty = 1, lwd = 2, pch = 18
+       )
+```
+
+## Generic Functions
+
+```{r}
+knn_f <- function(X, Y, att, seq_i=1, seq_j=k_opt, seq_step=1) {
+  library(caret); library(FNN); library(class)
+  library(gmodels); library(e1071); library(ggplot2)
+  options(scipen = 0)
+  set.seed(2021)
+  accuracy <- data.frame(k = seq(seq_i, seq_j, seq_step), accuracy = rep(0, k_opt))
+  for (i in seq_i:seq_j) {
+    knn.pred <- knn(X[, att], Y[, att], cl = X[, 'STATUS'], k = i)
+    accuracy[i, 2] <- confusionMatrix(knn.pred, factor(Y[, 'STATUS']), 
+                                      positive = 'paid')$overall[1]
+  }
+  print(accuracy)
+  plot(accuracy$k, xlab = "Values of k",
+       accuracy$accuracy,
+       ylab = "Accuracies",
+       main = "Values of k against their accuracies",
+       type = 'l',
+       col = 'gray')
+}
+```
+
+```{r}
+knn_e <- function(X, Y, att, i){
+  library(caret); library(FNN); library(class)
+  library(gmodels); library(e1071); library(ggplot2)
+  options(scipen = 0)
+  set.seed(2021)
+  knn_pred <- knn(X[, att], Y[, att], cl = X[, 'STATUS'], k = i)
+  confusionMatrix(factor(knn_pred, 
+                         levels = c("paid", "defaulted")), 
+                  factor(Y$STATUS, 
+                         levels = c("paid", "defaulted")),
+                  positive = "paid")
+}
+```
+
+```{r}
+knn_ks <- function(X, Y, att, seq_i=1, seq_j=k_opt, seq_step=1) {
+  library(caret); library(FNN); library(class)
+  library(gmodels); library(e1071); library(ggplot2)
+  options(scipen = 0)
+  set.seed(2021)
+  accuracy <- data.frame(k = seq(seq_i, seq_j, seq_step), accuracy = rep(0, k_opt))
+  for (i in seq_i:seq_j) {
+    knn.pred <- knn(X[, att], Y[, att], cl = X[, 'STATUS'], k = i)
+    accuracy[i, 2] <- confusionMatrix(knn.pred, factor(Y[, 'STATUS']), 
+                                      positive = 'paid')$overall[1]
+  }
+  accuracy
+}
+```
+
+## Imbalanced Full
+
+```{r}
+my.par()
+knn_f(train.knn, valid.knn, col)
+#5
+```
+```{r}
+knn_e(train.knn, valid.knn, col, 5)
+```
+
+## Balanced Full
+```{r}
+my.par()
+knn_f(train.knn.rose, valid.knn[, -1], col.rose.k) %>% suppressWarnings()
+# 25
+```
+```{r}
+knn_e(train.knn.rose, valid.knn[, -1], col.rose.k, 25)
+```
+
+## Imbalanced Set 1
+```{r}
+my.par()
+knn_f(train.knn[, var1], valid.knn[, var1], col1) %>% suppressWarnings()
+# 5
+```
+```{r}
+knn_e(train.knn[, var1], valid.knn[var1], col1, 5)
+```
+
+## Balanced Set 1
+
+```{r}
+my.par()
+knn_f(train.knn.rose[, var1], valid.knn[, var1], col1) %>% suppressWarnings()
+# 1
+```
+```{r}
+knn_e(train.knn.rose[, var1], valid.knn[var1], col1, 1)
+```
+
+## Imbalanced Set 2
+
+```{r}
+my.par()
+knn_f(train.knn[, var2], valid.knn[, var2], col2)
+# 3
+```
+```{r}
+knn_e(train.knn[, var2], valid.knn[var2], col2, 3)
+```
+
+## Balanced Set 2
+
+```{r}
+my.par()
+knn_f(train.rose[, var2], valid[, var2], col2) %>% suppressWarnings()
+# 19
+```
+
+```{r}
+knn_e(train.rose[, var2], valid[var2], col2, 19)
+```
+
+## kNN CM Plot
+
+```{r}
+knn_cmp <- function(cm, title) {
+  fourfoldplot(cm, color = c("cornflowerblue", "red2"),
+               margin = 1, space = 0.3,
+               conf.level = 0, main = title)
+}
+my.par() %>% par(mfrow = c(2, 3),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(2,4,2,0) + 0.1
+                 )
+knn_cmp(knn_e(train.knn, valid.knn, col, 5)$table, "Model G: k = 5")
+knn_cmp(knn_e(train.knn[, var1], valid.knn[var1], col1, 5)$table, "Model H: k = 5")
+knn_cmp(knn_e(train.knn[, var2], valid.knn[var2], col2, 3)$table, "Model I: k = 3")
+knn_cmp(knn_e(train.knn.rose, valid.knn[, -1], col.rose.k, 25)$table, "Model J: k = 25")
+knn_cmp(knn_e(train.knn.rose[, var1], valid.knn[var1], col1, 1)$table, "Model K: k = 1")
+knn_cmp(knn_e(train.rose[, var2], valid[var2], col2, 19)$table, "Model L: k = 19")
+```
+
+
+# Neural Networks
+
+## Neural Networks (nn) Data sets
+
+```{r}
+train.nn <- train
+train.nn.rose <- train.rose
+valid.nn <- valid
+```
+
+## Generic Function
+
+```{r}
+set.seed(2021)
+options(scipen = 0)
+normalize <- function(x) {
+  return((x - min(x)) / (max(x) - min(x)))
+}
+train.nn[, c(2:4, 7:13, 15:16)] <- as.data.frame(lapply(train.nn[, c(2:4, 7:13, 15:16)], normalize))
+
+train.nn.rose.bad <- train.nn.rose
+train.nn.rose.bad$BAD <- ifelse(train.nn.rose$STATUS == "paid", 0, 1)
+train.nn.rose.bad <- train.nn.rose.bad[, c(16, 1:15)]
+
+train.nn.rose.bad[, c(2:4, 7:13, 15:16)] <- as.data.frame(lapply(train.nn.rose.bad[, c(2:4, 7:13, 15:16)], normalize))
+```
+
+## Imbalanced Full
+
+```{r}
+nn_if <- function(x, y, z=0.01) {
+  var.bad <- c(1:4, 7:13, 15:16)
+  col.bad <- c(2:4, 7:13, 15:16)
+  if (!require("neuralnet")) install.packages("neuralnet")
+  library(neuralnet)
+  # Model
+  set.seed(2021)
+  options(scipen = 0)
+  nn <- neuralnet(BAD ~ .,
+                      data = train.nn[, var.bad],
+                      hidden = x, threshold = z,
+                      linear.output = FALSE)
+  # plot(nn)
+  # Predict
+  nn_pred <- neuralnet::compute(nn, valid.nn[, col.bad])
+  nn_pred_result <- nn_pred$net.result
+  
+  # Evaluate
+  confusionMatrix(factor(ifelse(nn_pred_result < y, "paid", "defaulted"),
+                         levels = c("paid", "defaulted")),
+                  factor(valid.nn$STATUS, levels = c("paid", "defaulted"))) %>% print()
+  # if (!require("beepr")) install.packages("beepr"); library(beepr)
+  # beep(2)
+}
+```
+
+```{r}
+cm_nn1 <- nn_if(1, 0.5)
+```
+
+## Balanced Full
+
+```{r}
+nn_bf <- function(x, y) {
+  var.bad <- c(1:4, 7:13, 15:16)
+  col.bad <- c(2:4, 7:13, 15:16)
+  if (!require("neuralnet")) install.packages("neuralnet")
+  library(neuralnet)
+  set.seed(2021)
+  options(scipen = 0)
+  # Model
+  nn <- neuralnet(BAD ~ .,
+                  data = train.nn.rose.bad[, var.bad],
+                  hidden = x,
+                  linear.output = FALSE)
+  # plot(nn)
+  # Predict
+  nn_pred <- neuralnet::compute(nn, valid.nn[, col.bad])
+  nn_pred_result <- nn_pred$net.result
+  
+  # Evaluate
+  confusionMatrix(factor(ifelse(nn_pred_result > y, "paid", "defaulted"),
+                         levels = c("paid", "defaulted")),
+                  factor(valid.nn$STATUS, levels = c("paid", "defaulted"))) %>% print()
+  # if (!require("beepr")) install.packages("beepr"); library(beepr)
+  # beep(2)
+}
+```
+
+```{r}
+cm_nn4 <- nn_bf(2, 0.5)
+```
+
+## Imbalaned Set 1
+
+```{r}
+nn_i1 <- function(x, y) {
+  var.bad <- c("BAD", "LOAN", "CLNO", "YOJ", "DELINQ", "DEROG", "NINQ")
+  col.bad <- c("LOAN", "CLNO", "YOJ", "DELINQ", "DEROG", "NINQ")
+  if (!require("neuralnet")) install.packages("neuralnet")
+  library(neuralnet)
+  nn <- neuralnet(BAD ~ .,
+                  data = train.nn[, var.bad],
+                  hidden = x,
+                  linear.output = FALSE)
+  # plot(nn)
+  # Predict
+  options(scipen = 0)
+  set.seed(2021)
+  nn_pred <- neuralnet::compute(nn, valid.nn[, col.bad])
+  nn_pred_result <- nn_pred$net.result
+  
+  # Evaluate
+  confusionMatrix(factor(ifelse(nn_pred_result > y, "paid", "defaulted"),
+                         levels = c("paid", "defaulted")),
+                  factor(valid.nn$STATUS, levels = c("paid", "defaulted"))) %>% print()
+  # if (!require("beepr")) install.packages("beepr"); library(beepr)
+  # beep(2)
+}
+```
+
+```{r}
+cm_nn2 <- nn_i1(c(1, 1), 0.5)
+```
+
+## Balanced Set 1
+
+```{r}
+nn_b1 <- function(x, y) {
+  var.bad <- c("BAD", "LOAN", "CLNO", "YOJ", "DELINQ", "DEROG", "NINQ")
+  col.bad <- c("LOAN", "CLNO", "YOJ", "DELINQ", "DEROG", "NINQ")
+  if (!require("neuralnet")) install.packages("neuralnet")
+  library(neuralnet)
+  nn <- neuralnet(BAD ~ .,
+                  data = train.nn.rose.bad[, var.bad],
+                  hidden = x,
+                  linear.output = FALSE)
+  # plot(nn)
+  # Predict
+  options(scipen = 0)
+  set.seed(2021)
+  nn_pred <- neuralnet::compute(nn, valid.nn[, col.bad])
+  nn_pred_result <- nn_pred$net.result
+  
+  # Evaluate
+  confusionMatrix(factor(ifelse(nn_pred_result > y, "paid", "defaulted"),
+                         levels = c("paid", "defaulted")),
+                  factor(valid.nn$STATUS, levels = c("paid", "defaulted"))) %>% print()
+  # if (!require("beepr")) install.packages("beepr"); library(beepr)
+  # beep(2)
+}
+```
+
+```{r}
+cm_nn5 <- nn_b1(c(1, 2), 0.5)
+```
+
+## Imbalanced Set 2
+
+```{r}
+nn_i2 <- function(x, y) {
+  var.bad <- c("BAD", "CLAGE", "DEBTINC", "DELINQ", "DEROG", "NINQ")
+  col.bad <- c("CLAGE", "DEBTINC", "DELINQ", "DEROG", "NINQ")
+  if (!require("neuralnet")) install.packages("neuralnet")
+  library(neuralnet)
+  nn <- neuralnet(BAD ~ .,
+                  data = train.nn[, var.bad],
+                  hidden = x,
+                  linear.output = FALSE)
+  # plot(nn)
+  # Predict
+  options(scipen = 0)
+  set.seed(2021)
+  nn_pred <- neuralnet::compute(nn, valid.nn[, col.bad])
+  nn_pred_result <- nn_pred$net.result
+  
+  # Evaluate
+  confusionMatrix(factor(ifelse(nn_pred_result > y, "paid", "defaulted"),
+                         levels = c("paid", "defaulted")),
+                  factor(valid.nn$STATUS, levels = c("paid", "defaulted"))) %>% print()
+  # if (!require("beepr")) install.packages("beepr"); library(beepr)
+  # beep(2)
+}
+```
+
+```{r}
+cm_nn3 <- nn_i2(2, 0.5)
+```
+
+## Balanced Set 2
+
+```{r}
+nn_b2 <- function(x, y) {
+  var.bad <- c("BAD", "CLAGE", "DEBTINC", "DELINQ", "DEROG", "NINQ")
+  col.bad <- c("CLAGE", "DEBTINC", "DELINQ", "DEROG", "NINQ")
+  if (!require("neuralnet")) install.packages("neuralnet")
+  library(neuralnet)
+  nn <- neuralnet(BAD ~ .,
+                  data = train.nn.rose.bad[, var.bad],
+                  hidden = x,
+                  linear.output = FALSE)
+  # plot(nn)
+  # Predict
+  options(scipen = 0)
+  set.seed(2021)
+  nn_pred <- neuralnet::compute(nn, valid.nn[, col.bad])
+  nn_pred_result <- nn_pred$net.result
+  
+  # Evaluate
+  confusionMatrix(factor(ifelse(nn_pred_result > y, "paid", "defaulted"),
+                         levels = c("paid", "defaulted")),
+                  factor(valid.nn$STATUS, levels = c("paid", "defaulted"))) %>% print()
+  # if (!require("beepr")) install.packages("beepr"); library(beepr)
+  # beep(2)
+}
+```
+
+```{r}
+cm_nn6 <- nn_b2(c(1, 2), 0.5)
+```
+
+## NN CM Plot
+
+```{r}
+# nn_cmp <- function(cm, title) {
+#   fourfoldplot(cm, color = c("cornflowerblue", "red2"),
+#                margin = 1, space = 0.3,
+#                conf.level = 0, main = title)
+# }
+# my.par() %>% par(mfrow = c(2, 3),
+#                  mai = par("mai") * 1,
+#                  oma = c(0,0,0,0) + 0.1,
+#                  mar = c(2,4,2,0) + 0.1
+#                  )
+# nn_cmp(nn_if(1, 0.5)$table, "Model M: (1) - cutoff:0.5")
+# nn_cmp(nn_i1(c(1, 1), 0.5)$table, "Model N: (1,1) - cutoff:0.5")
+# nn_cmp(nn_i2(2, 0.5)$table, "Model O: (2) - cutoff:0.5")
+# nn_cmp(nn_bf(2, 0.5)$table, "Model P: (1) - cutoff:0.5")
+# nn_cmp(nn_b1(c(1, 2), 0.5)$table, "Model Q: (1,2) - cutoff:0.5")
+# nn_cmp(nn_b2(c(2, 1), 0.5)$table, "Model M: (2,1) - cutoff:0.5")
+```
+
+```{r}
+nn_cmp <- function(cm, title) {
+  fourfoldplot(cm, color = c("cornflowerblue", "red2"),
+               margin = 1, space = 0.3,
+               conf.level = 0, main = title)
+}
+my.par() %>% par(mfrow = c(2, 3),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(2,4,2,0) + 0.1
+                 )
+nn_cmp(cm_nn1$table, "Model M: (1) - cutoff:0.5")
+nn_cmp(cm_nn2$table, "Model N: (1,1) - cutoff:0.5")
+nn_cmp(cm_nn3$table, "Model O: (2) - cutoff:0.5")
+nn_cmp(cm_nn4$table, "Model P: (1) - cutoff:0.5")
+nn_cmp(cm_nn5$table, "Model Q: (1,2) - cutoff:0.5")
+nn_cmp(cm_nn6$table, "Model R: (1,2) - cutoff:0.5")
+```
+ 
+
+# Clean up
+
+```{r}
+rm(list = ls())
+cat("\014")
+```

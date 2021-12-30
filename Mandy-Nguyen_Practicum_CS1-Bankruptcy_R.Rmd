@@ -1,0 +1,719 @@
+---
+title: "Predict Corporate Bankruptcy Analysis"
+author: "Mandy HP Nguyen"
+date: "12/17/2021"
+output:
+  word_document:
+    toc: yes
+    toc_depth: '4'
+  html_document:
+    theme: paper
+    highlight: breezedark
+    code_folding: hide
+    toc: yes
+    toc_depth: 4
+    toc_float: yes
+    number_sections: yes
+  pdf_document:
+    toc: yes
+    toc_depth: '4'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Environment Setting
+
+## Load Mandy's Functions
+
+```{r}
+source("https://raw.githubusercontent.com/mandyhpnguyen/Mandy-Functions/main/M.R-Funcs/general.R")
+```
+
+## Load Packages
+
+```{r}
+pkgs <- c(
+  "beepr",
+  # General pkgs:
+  "tidyverse", "dplyr", "summarytools", "reshape2", "pastecs", "ROSE",
+  # Analytics pkgs:
+  "forecast", "zoo", "scorecard",
+  # Evaluation pkgs:
+  "caret", "DT", "lift", "gains", "gt", "cvms","tibble", "fourfoldplot",
+  # Visualization pkgs:
+  "RColorBrewer", "hrbrthemes", "knitr", "showtext", "sysfonts",
+  "ggfortify", "ggplot2", "corrplot", "GGally", "viridis",
+  "lattice", "grid", "cowplot", "Amelia"
+)
+suppressMessages(suppressWarnings(loadpkg(pkgs)))
+```
+
+## Set fonts
+
+```{r}
+# Load the main font I used in my paper to plot charts for standardization
+windowsFonts(cambria = windowsFont("Cambria"))
+my.par <- function() {
+  options(scipen = 999)
+  par(mfrow = c(1, 1),
+      family = "cambria", 
+      cex.main = 1.25, cex.lab = 1.25, cex.axis = 1.25)
+}
+```
+
+## Color Scheme
+
+```{r}
+pal <- c("cornflowerblue", "orange", "red2", "forestgreen", "mediumorchid1", "tomato3", "cadetblue1")
+```
+
+# Collect Data
+
+```{r}
+bankruptcy <- read.csv("https://raw.githubusercontent.com/mandyhpnguyen/MS-Data-Analytics-Datasets/main/Practicum/Bankruptcy.csv")
+data <- bankruptcy
+```
+
+# Pre-process Data
+
+## Create Variable Objects
+
+```{r}
+cols <- c('D','R1','R2','R3','R4','R5','R6','R7','R8','R9','R10','R11','R12','R13','R14','R15','R16','R17','R18','R19','R20','R21','R22','R23','R24')
+vars <- c('R1','R2','R3','R4','R5','R6','R7','R8','R9','R10','R11','R12','R13','R14','R15','R16','R17','R18','R19','R20','R21','R22','R23','R24')
+```
+
+```{r}
+data2 <- data
+data2$STATUS <- factor(ifelse(data$D == 0, "bankrupt", "healthy"), 
+                       levels = c("bankrupt", "healthy"))
+```
+
+
+## Check for Missing and Null Values
+
+```{r}
+# Check Missing Values
+sum(is.na(data))
+sum(data[, 4:27] == 0) # 50
+```
+
+```{r}
+# Check Null Values
+zeroset <- data[data[, 4] == 0 |
+                      data[, 5] == 0 |
+                      data[, 6] == 0 |
+                      data[, 7] == 0 |
+                      data[, 8] == 0 |
+                      data[, 9] == 0 |
+                      data[, 10] == 0 |
+                      data[, 11] == 0 |
+                      data[, 12] == 0 |
+                      data[, 13] == 0 |
+                      data[, 14] == 0 |
+                      data[, 15] == 0 |
+                      data[, 16] == 0 |
+                      data[, 17] == 0 |
+                      data[, 18] == 0 |
+                      data[, 19] == 0 |
+                      data[, 20] == 0 |
+                      data[, 21] == 0 |
+                      data[, 22] == 0 |
+                      data[, 23] == 0 |
+                      data[, 24] == 0 |
+                      data[, 25] == 0 |
+                      data[, 26] == 0 |
+                      data[, 27] == 0,
+                ]
+
+View(zeroset)
+
+# Check number of rows with Null values
+zeroset %>% 
+  group_by(YR) %>% 
+  filter(D == 1) %>% 
+  nrow()
+```
+
+# Attributes Analysis
+
+## Statistical Measures
+
+```{r}
+summary(data)
+```
+
+## "D" Target Attribute
+
+```{r}
+# Distribution of the data indicator in the data set
+my.par() %>%  par(mfrow = c(1, 1),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(4,2,2,0) + 0.1
+                 )
+D_p <- plot(as.factor(data$D), ylim = c(1, 75), 
+            xlab = "0: Bankrupt - 1: Healthy",
+     col = c("cornflowerblue", "red2"))
+text(D_p, y = table(data$D),
+     labels = table(data$D),
+     pos = 3, cex = 1)
+```
+
+## "Year" Attribute
+
+```{r}
+yr <- data[, 2:3]
+table(yr$YR)
+
+yrs <- function(i, j){
+  for (i in i:j) {
+    print(table(yr[yr$YR == i,]$D))
+    i = i + 1
+  }
+}
+yrs(70, 82)
+```
+
+```{r}
+my.par() %>%  par(mfrow = c(1, 1),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(4,2,2,0) + 0.1
+                 )
+yr_p <- plot(as.factor(data$YR), ylim = c(0, 30), 
+            xlab = "Year (YY)",
+     col = pal)
+text(yr_p, y = table(data$YR),
+     labels = table(data$YR),
+     pos = 3, cex = 1)
+```
+## Ratios
+
+```{r}
+out.bp <- function(dataset) {
+  my.par() %>% par(mfrow = c(2, 12),
+                 mai = par("mai") * 1,
+                 oma = c(0,0,0,0) + 0.1,
+                 mar = c(0.5,2.5,5,0) + 0.1
+                 )
+  i = 2
+  for (i in 2:length(colnames(dataset))) {
+    boxplot(dataset[, i],
+            main = colnames(dataset)[i],
+            cex.main = 2, cex.axis = 2,
+            col = "red2")
+    i = i + 1
+  } 
+}
+```
+
+```{r}
+out.bp(data[, -c(1:2)])
+```
+
+## Correlation Matrix
+
+```{r}
+corr.df <- data[, cols]
+corr.mat <- round(cor(corr.df),2)
+testRes = cor.mtest(corr.mat, conf.level = 0.95)
+```
+
+```{r}
+my.par()
+corrplot(corr.mat, method = "color", 
+         type = "full", tl.col = "black")$corrPos -> corrp
+text(corrp$x, corrp$y, round(corrp$corr, 2))
+```
+
+## Plot Box
+
+```{r}
+colnames(data)[13]
+```
+
+```{r}
+# Generic Function for Box Plot
+bp <- function(i, ylab) {
+  ggplot(data = data2, aes(fill = STATUS, y = data2[, i], x = STATUS)) +
+    geom_boxplot(alpha = .5, notch = TRUE, notchwidth = .95) +
+    geom_jitter(alpha = .25) +
+    theme_classic() + labs(y = ylab) +
+    scale_fill_manual(values = c("red2", "cornflowerblue")) +
+    theme(text = element_text(size = 12, family = "cambria")) +
+    theme(axis.ticks.y = element_blank(),
+          axis.title.x = element_blank(),
+          legend.position = "none")
+}
+```
+
+```{r}
+# Box plot for R9, R10, R17, R20
+bpR9 <- bp(12, "R9 (CURASS / CURDEBT)")
+bpR10 <- bp(13, "R10 (CURASS / SALES)")
+bpR17 <- bp(20, "R17 (INCDEP / ASSETS)")
+bpR20 <- bp(23, "R20 (SALES / ASSETS)")
+my.par()
+cowplot::plot_grid(bpR9, bpR10, bpR17, bpR20, labels = "AUTO", nrow = 1, ncol = 4)
+```
+
+# Parition
+
+## Original Dataset
+
+## Randomize
+```{r}
+set.seed(2021)
+index_ran <- sample(seq_len(nrow(data)), size = 1*nrow(data))
+data_s <- data[index_ran,]
+
+set.seed(2021)
+index_s <- sample(seq_len(nrow(data_s)), size = 0.6*nrow(data_s))
+train_s <- data_s[index_s, cols]
+test_s <- data_s[-index_s, cols]
+
+# summary(as.factor(train_s$D))
+# summary(as.factor(test_s$D))
+```
+
+## Normalized Dataset
+
+### Normalize Function using Min-max
+
+```{r}
+normalize <- function(x) {
+  return((x - min(x)) / (max(x) - min(x)))
+}
+```
+
+### Create Normalized Dataset
+
+```{r}
+data_n <- data
+data_n[, 4:27] <- as.data.frame(lapply(data[, 4:27], normalize))
+
+set.seed(2021)
+index_n <- sample(seq_len(nrow(data_n)), size = 0.6*nrow(data_n))
+train_n <- data_n[index_n, cols]
+test_n <- data_n[-index_n, cols]
+
+# summary(as.factor(train_n$D))
+# summary(as.factor(test_n$D))
+```
+
+## Reduced Dataset
+
+```{r}
+data_r <- data[, c("D", "R9", "R10", "R17", "R20")]
+str(data_r)
+set.seed(2021)
+index_r <- sample(seq_len(nrow(data_r)), size = 0.6*nrow(data_r))
+train_r <- data_r[index_r, ]
+test_r <- data_r[-index_r, ]
+
+# summary(as.factor(train_r$D))
+# summary(as.factor(test_r$D))
+```
+
+```{r}
+# summary(as.factor(train_r$D))
+# summary(as.factor(test_r$D))
+
+## Set 1: Original Dataset & Testing Set ---------------------------------
+# data_r
+# test_r
+
+## Set 2: Original Training Dataset & Testing Set ---------------------------------
+# train_r
+# test_r
+
+## Set 3: Normalized Dataset & Normalized Testing Set --------------------
+# data_r
+# test_r
+
+## Set 4: Normalized Training Dataset & Normalized Testing Set -----------
+# data_r
+# test_r
+
+## Set 5: Original Training Dataset & Testing Set ------------------------
+# train_r
+# test_r
+
+## Set 6: Reduced Training Dataset & Testing Set ------------------------
+# train_r
+# test_r
+```
+
+# Logistic Regression
+
+## Logistic Regression Generic Functions
+
+### Model + Evaluation
+
+```{r}
+loreg_m <- function(X, Y){
+  # Model
+  if (!require("lattice")) install.packages("lattice")
+  lg.reg <- glm(D ~ ., data = X, family = "binomial")
+  print(summary(lg.reg))
+    # Predict
+  lg.reg.pred <- predict(lg.reg, Y)
+    # Evaluate
+  if (!require("caret")) install.packages("caret")
+  library(caret)
+  confusionMatrix(factor(ifelse(lg.reg.pred > 0.5, 1, 0)), factor(Y$D), positive = '0')
+  # plot(lg.reg, which = 1:2)  
+} 
+```
+
+### Stepwise Function
+
+```{r}
+loreg_m_ic <- function(X, Z){
+  lg.reg <- glm(D ~ ., data = X, family = "binomial")
+  # step(lg.reg, direction = Z)
+  summary(step(lg.reg, direction = Z))
+}
+
+# New Attributes Sets' Prediction & Evaluation
+loreg_m_i <- function(X, Y, a, b, c){
+  # 3 new models
+  lg.reg_2 <- glm(D ~ ., data = X[, a], family = "binomial")
+  lg.reg_3 <- glm(D ~ ., data = X[, b], family = "binomial")
+  lg.reg_4 <- glm(D ~ ., data = X[, c], family = "binomial")
+  summary(lg.reg_2)
+  summary(lg.reg_3)
+  summary(lg.reg_4)
+  # Predict 3 new models
+  lg.reg.pred_2 <- predict(lg.reg_2, Y)
+  lg.reg.pred_3 <- predict(lg.reg_3, Y)
+  lg.reg.pred_4 <- predict(lg.reg_4, Y)
+  # Evaluate
+  library(caret)
+  print(confusionMatrix(factor(ifelse(lg.reg.pred_2 > 0.5, 1, 0)), factor(Y$D), positive = '0'))
+  # plot(lg.reg_2, which = 1:2)
+  print(confusionMatrix(factor(ifelse(lg.reg.pred_3 > 0.5, 1, 0)), factor(Y$D), positive = '0'))
+  # plot(lg.reg_3, which = 1:2)
+  print(confusionMatrix(factor(ifelse(lg.reg.pred_4 > 0.5, 1, 0)), factor(Y$D), positive = '0'))
+  # plot(lg.reg_4, which = 1:2)
+}
+```
+
+## Original Dataset
+
+```{r}
+# Model + Evaluation
+loreg_m(data_s[, cols], test_s) # 0.8491
+# Improved Ratios
+loreg_m_ic(data_s[, cols], "backward") # 0.8679
+loreg_m_ic(data_s[, cols], "forward") # 0.8491
+loreg_m_ic(data_s[, cols], "both") # 0.8679
+a_s <- c("D", "R3", "R5", "R6", "R9", "R10", "R16", "R17", "R18", "R22", "R23", "R24")
+b_s <- cols
+c_s <- a_s
+# Improved Performance with new ratios
+loreg_m_i(data_s, test_s, a_s, b_s, c_s)
+```
+
+## Original Training Dataset
+
+```{r}
+# Model + Evaluation
+loreg_m(train_s[, cols], test_s) # 0.6415
+# Improved Ratios
+loreg_m_ic(train_s[, cols], "backward") # 0.6604
+loreg_m_ic(train_s[, cols], "forward") # 0.6415
+loreg_m_ic(train_s[, cols], "both")
+a_ts <- c("D", "R2", "R3", "R5", "R9", "R10", "R12", "R14", "R15", "R16", "R19", "R21")
+b_ts <- cols
+c_ts <- a_ts
+# Improved Performance with new ratios
+loreg_m_i(train_s, test_s, a_ts, b_ts, c_ts)
+```
+ 
+## Normalized Dataset
+
+```{r}
+# Model + Evaluation
+loreg_m(data_n[, cols], test_n) # 0.9434
+# Improved Ratios
+loreg_m_ic(data_n[, cols], "backward") 
+loreg_m_ic(data_n[, cols], "forward")
+loreg_m_ic(data_n[, cols], "both")
+a_n <- c("D", "R3", "R5", "R6", "R9", "R10", "R16", "R17", "R18", "R22", "R23", "R24") # 0.9057
+b_n <- cols
+c_n <- a_n
+# Improved Performance with new ratios
+loreg_m_i(data_n, test_n, a_n, b_n, c_n)
+```
+
+## Normalized Training Dataset
+
+```{r}
+# Model + Evaluation
+loreg_m(train_n[, cols], test_n) #0.6415
+# Improved Ratios
+loreg_m_ic(train_n[, cols], "backward")
+loreg_m_ic(train_n[, cols], "forward")
+loreg_m_ic(train_n[, cols], "both")
+a_tn <- c("D", "R5", "R6", "R7", "R10", "R11", "R12", "R14", "R16", "R17", "R18", "R22", "R24") # 0.6415
+b_tn <- cols
+c_tn <- a_tn
+# Improved Performance with new ratios
+loreg_m_i(train_n, test_n, a_tn, b_tn, c_tn)
+```
+
+## Reduced Dataset
+
+```{r}
+loreg_m(data_r, test_r) # 0.9245
+# Improved Ratios
+loreg_m_ic(data_r, "backward")
+loreg_m_ic(data_r, "forward")
+loreg_m_ic(data_r, "both")
+a_r <- c("D", "R9", "R10", "R17")
+b_r <- c("D", "R9", "R10", "R17", "R20")
+c_r <- a_r
+# Improved Performance with new ratios
+loreg_m_i(data_r, test_r, a_r, b_r, c_r) # 0.9245
+```
+
+## Reduced Training Dataset
+
+```{r}
+# Model + Evaluation
+loreg_m(train_r, test_r) # 0.8868
+# Improved Ratios
+loreg_m_ic(train_r, "backward") # 0.9057
+loreg_m_ic(train_r, "forward")
+loreg_m_ic(train_r, "both")
+a_tr <- c("D", "R9", "R10", "R17")
+b_tr <- c("D", "R9", "R10", "R17", "R20")
+c_tr <- a_r
+# Improved Performance with new ratios
+loreg_m_i(train_r, test_r, a_tr, b_tr, c_tr)
+```
+
+# Neural Networks
+
+## Neural Networks Generic Functions
+
+### Prediction & Plot Function
+
+```{r}
+nn_f <- function(X, Y, i, j){
+  if (!require("neuralnet")) install.packages("neuralnet")
+  library(neuralnet)
+  # Model
+  nn <- neuralnet(D ~ .,
+                      data = X,
+                      hidden = i,
+                      linear.output = FALSE)
+  plot(nn)
+  # Predict
+  nn_pred <- compute(nn, Y[, -1])
+  nn_pred_result <- nn_pred$net.result
+  # Evaluate
+  print(cor(nn_pred_result, Y$D))
+  print(confusionMatrix(factor(ifelse(nn_pred_result > j, 1, 0)), factor(Y$D), positive = '0'))
+}
+```
+
+## Original Dataset
+
+```{r}
+nn_f(data_s[, cols], test_s, 1, 0.5) # 0.9057
+nn_f(data_s[, cols], test_s, 2, 0.5) # 0.8868
+nn_f(data_s[, cols], test_s, 3, 0.5) # 0.9623 
+nn_f(data_s[, cols], test_s, c(1,2), 0.5) # 0.8868 
+nn_f(data_s[, cols], test_s, c(3,2), 0.5) # 0.9623     
+```
+
+## Original Training Dataset
+
+```{r}
+nn_f(train_s[, cols], test_s, 1, 0.5) # 0.7547
+nn_f(train_s[, cols], test_s, 2, 0.5) # 0.8113 (run twice)
+nn_f(train_s[, cols], test_s, 3, 0.5) # 0.6981
+nn_f(train_s[, cols], test_s, c(1,2), 0.5) # 0.6792
+nn_f(train_s[, cols], test_s, c(3,2), 0.5) # 0.6415
+```
+
+
+## Normalized Dataset
+
+```{r}
+nn_f(data_n[, cols], test_n, 1, 0.5) # 0.9623
+nn_f(data_n[, cols], test_n, 2, 0.5) # 0.9434
+nn_f(data_n[, cols], test_n, 3, 0.5) # 0.9811
+nn_f(data_n[, cols], test_n, c(1,2), 0.5) # 0.9623
+nn_f(data_n[, cols], test_n, c(3,2), 0.5) # 0.9623
+```
+
+## Normalized Training Dataset
+
+```{r}
+nn_f(train_n[, cols], test_n, 1, 0.5) # 0.7736 (run 3 times)
+nn_f(train_n[, cols], test_n, 2, 0.5) # 0.7358
+nn_f(train_n[, cols], test_n, 3, 0.5) # 0.7358
+nn_f(train_n[, cols], test_n, c(1,2), 0.5) # 0.7358
+nn_f(train_n[, cols], test_n, c(3,2), 0.5) # 0.7547
+```
+
+## Reduced Dataset
+
+```{r}
+nn_f(data_r, test_r, 1, 0.5) # 0.9623
+nn_f(data_r, test_r, 2, 0.5) # 0.9434
+nn_f(data_r, test_r, 3, 0.5) # 0.9623
+nn_f(data_r, test_r, c(1,2), 0.5) # 0.9623
+nn_f(data_r, test_r, c(3,2), 0.5) # 0.9245
+```
+
+## Reduced Training Dataset
+
+```{r}
+nn_f(train_r, test_r, 1, 0.5) # 0.9245
+nn_f(train_r, test_r, 2, 0.5) # 0.8679
+nn_f(train_r, test_r, 3, 0.5) # 0.8113
+nn_f(train_r, test_r, c(1,2), 0.5) # 0.9434
+nn_f(train_r, test_r, c(3,2), 0.5) # 0.717
+```
+
+# k-Nearest Neighbor
+## Calculate best k
+
+```{r}
+numer_of_k <- sqrt(nrow(data_s))
+numer_of_k # - 11.5
+```
+
+## k-Nearest Neighbor Generic Functions
+### Accuracy table and plot of k
+
+```{r}
+knn_f <- function(X, Y, att, seq_i, seq_j, seq_step) {
+  library(caret)
+  library(FNN)
+  library(class)
+  library(gmodels)
+  library(e1071)
+  library(ggplot2)
+  accuracy <- data.frame(k = seq(seq_i, seq_j, seq_step), accuracy = rep(0, 15))
+  for(i in seq_i:seq_j) {
+    knn.pred <- knn(X[, att],
+                    Y[, att],
+                    cl = X[, 'D'], 
+                    k = i)
+    accuracy[i, 2] <- confusionMatrix(knn.pred, factor(Y[, 'D']), positive = '0')$overall[1]
+  }
+  print(accuracy)
+  plot(accuracy$k, xlab = "Values of k",
+       accuracy$accuracy,
+       ylab = "Accuracies",
+       main = "Values of k against their accuracies",
+       type = 'l',
+       cols = 'gray')
+}
+```
+
+### Prediction and Evaluation of k = i
+
+```{r}
+knn_e <- function(X, Y, att, i){
+  library(caret)
+  library(FNN)
+  library(class)
+  library(gmodels)
+  library(e1071)
+  library(ggplot2)
+  knn_pred <- knn(X[, att],
+                  Y[, att],
+                  cl = X[, 'D'],
+                  k = i)
+  # Evaluate
+  CrossTable(Y$D, knn_pred, prop.chisq = F)
+  confusionMatrix(factor(knn_pred), factor(Y$D))
+}
+```
+
+## Original Dataset
+
+```{r}
+# k table
+knn_f(data_s, test_s, vars, 1, 15)
+# Model & Predict & Evaluate
+knn_e(data_s, test_s, vars, 11)
+# Improve
+knn_e(data_s, test_s, vars, 1)
+knn_e(data_s, test_s, vars, 3)
+```
+
+## Original Training Dataset
+
+```{r}
+# k table
+knn_f(train_s, test_s, vars, 1, 15)
+# Model & Predict & Evaluate
+knn_e(train_s, test_s, vars, 11)
+# Improve
+knn_e(train_s, test_s, vars, 3)
+```
+
+## Normalized Dataset
+
+```{r}
+# k table
+knn_f(data_n, test_n, vars, 1, 15)
+# Model & Predict & Evaluate
+knn_e(data_n, test_n, vars, 11)
+# Improve
+knn_e(data_n, test_n, vars, 1)
+knn_e(data_n, test_n, vars, 2)
+```
+
+## Normalized Training Dataset
+
+```{r}
+# k table
+knn_f(train_n, test_n, vars, 1, 15)
+# Model & Predict & Evaluate
+knn_e(train_n, test_n, vars, 11)
+# Improve
+knn_e(train_n, test_n, vars, 1)
+```
+
+
+## Reduced Dataset
+
+```{r}
+# k table
+knn_f(data_r, test_r, -1, 1, 15)
+# Model & Predict & Evaluate
+knn_e(data_r, test_r, -1, 11)
+# Improve
+knn_e(data_r, test_r, -1, 1)
+knn_e(data_r, test_r, -1, 3)
+```
+
+
+## Reduced Training Dataset
+
+```{r}
+knn_f(train_r, test_r, -1, 1, 15)
+# Model & Predict & Evaluate
+knn_e(train_r, test_r, -1, 11)
+# Improve
+knn_e(train_r, test_r, -1, 4)
+```
+
+
+# Clean up
+
+```{r}
+rm(list = ls())
+cat("\014")
+```
