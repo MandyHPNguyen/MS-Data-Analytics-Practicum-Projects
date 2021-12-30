@@ -1,21 +1,26 @@
-<!-- PROJECT LOGO -->
+<!-- PROJECT HEADER -->
+
 <br />
 <div align="center">
-<h1>Master of Science in Data Analytics</h1>
-<h2>Final Practicum Projects in 2021</h2>
-<h3>developed by Mandy HP Nguyen</h3>
-  <p align="center">
-    The practicum includes 3 data classification projects 
-    <br />
-    <a href="https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_Final-Document.pdf"><strong><< Final Documentation HERE>></strong></a>
-  </p>
+  <head>
+    <title>HTML Elements Reference</title>
+  </head>
+  <title>Master of Science in Data Analytics</title>
+  <h2>Final Practicum Projects in 2021</h2>
+  <p><strong>developed by Mandy HP Nguyen</strong></p>
+  The practicum includes 3 data classification projects 
+  <br />
+  <a href="https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_Final-Document.pdf">
+    <strong><< Full Paper HERE >></strong>
+  </a>
 </div>
 
+[about](#about-the-project)
 
 
 <!-- TABLE OF CONTENTS -->
-<details>
-  <summary>Contents</summary>
+<div>
+  <h2>Contents</h2>
   <ol>
     <li>
       <a href="#about-the-project">About The Project</a>
@@ -24,29 +29,49 @@
       </ul>
     </li>
     <li>
-      <a href="#getting-started">Getting Started</a>
+      <a href="#road-map">Road Map</a>
       <ul>
         <li><a href="#prerequisites">Prerequisites</a></li>
         <li><a href="#installation">Installation</a></li>
       </ul>
     </li>
-    <li><a href="#usage">Usage</a></li>
-    <li><a href="#framework">Framework</a></li>
-    <li><a href="#contact">Contact</a></li>
+    <li><a href="#data-mining-methods">Data Mining Methods</a></li>
+    <li><a href="#documents">Documents</a></li>
+    <li><a href="#contact-me">Contact Me</a></li>
   </ol>
-</details>
+</div>
 
 
 
 <!-- ABOUT THE PROJECT -->
+
 ## About The Project
 
-[![Product Name Screen Shot][product-screenshot]](https://example.com)
+## Road Map
 
-Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `github_username`, `repo_name`, `twitter_handle`, `linkedin_username`, `email`, `email_client`, `project_title`, `project_description`
+## Data Mining Methods
+
+## Documents
+
+
+<!-- CONTACT -->
+
+## Contact Me
+
+Mandy HP Nguyen - [mandyhpnguyen@gmail.com](mandyhpnguyen@gmail.com)
+
+Project Link: [github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects)
+
+Linkedin: [linkedin.com/in/mandyhpnguyen](https://www.linkedin.com/in/mandyhpnguyen)
+
+
+
+
+## About The Project
+
+Here's a blank template to get started: To avoid retyping too much info. Do a search and replace with your text editor for the following: `data mining`, `data visualization`, `attribute analysis`, `data wrangling`, `data evaluation`, `imbalanced data`.
 
 <p align="right">(<a href="#top">back to top</a>)</p>
-
 
 
 ### Built With
@@ -103,43 +128,3 @@ This is an example of how to list things you need to use the software and how to
    ```js
    const API_KEY = 'ENTER YOUR API';
    ```
-
-<p align="right">(<a href="#top">back to top</a>)</p>
-
-
-
-<!-- USAGE EXAMPLES -->
-## Usage
-
-Use this space to show useful examples of how a project can be used. Additional screenshots, code examples and demos work well in this space. You may also link to more resources.
-
-_For more examples, please refer to the [Documentation](https://example.com)_
-
-<p align="right">(<a href="#top">back to top</a>)</p>
-
-
-
-
-<!-- CONTACT -->
-## Contact
-
-Mandy HP Nguyen - [mandyhpnguyen@gmail.com](mandyhpnguyen@gmail.com)
-
-Project Link: [https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects)
-
-Linkedin: [https://www.linkedin.com/in/mandyhpnguyen](https://www.linkedin.com/in/mandyhpnguyen)
-
-<p align="right">(<a href="#top">back to top</a>)</p>
-
-
-
-<!-- ACKNOWLEDGMENTS -->
-<!--
-## Acknowledgments
-
-* [Updating]()
-* []()
-* []()
-
-<p align="right">(<a href="#top">back to top</a>)</p>
--->
