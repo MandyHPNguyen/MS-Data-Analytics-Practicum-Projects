@@ -21,7 +21,7 @@
 
     1.2. [Technology](#technology)
 
-    1.3. [Significant Findings](#significant-findings)
+    1.3. [Learning Points & Findings](#learning-points-&-findings)
 
 3. [Road Map](#road-map)
 4. [Analysis Methods](#analysis-methods)
@@ -34,11 +34,14 @@
 
 ## About The Practicum Projects
 
+
+[3 data sets repository](https://github.com/mandyhpnguyen/MS-Data-Analytics-Datasets/tree/main/Practicum)
+
 ### Overview
 
 ### Technology
 
-### Significant Findings
+### Learning Points & Findings
 
 <!-- ROAD MAP -->
 
@@ -73,5 +76,5 @@ This [Github repository](https://github.com/mandyhpnguyen/MS-Data-Analytics-Prac
 ## Contacts
 
 - Mandy HP Nguyen - [mandyhpnguyen@gmail.com](mandyhpnguyen@gmail.com)
-- Project Link: [github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects)
 - Linkedin: [linkedin.com/in/mandyhpnguyen](https://www.linkedin.com/in/mandyhpnguyen)
+- Project Link: [github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects)
