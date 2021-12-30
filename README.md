@@ -16,10 +16,17 @@
 ## Contents
 
 1. [About The Practicum Projects](#about-the-practicum-projects)
-2. [Road Map](#road-map)
-3. [Data Mining Methods](#data-mining-methods)
-4. [Documents](#documents)
-5. [Contacts](#contacts)
+
+    1.1. [Overview](#overview)
+
+    1.2. [Technology](#technology)
+
+    1.3. [Significant Findings](#significant-findings)
+
+3. [Road Map](#road-map)
+4. [Analysis Methods](#analysis-methods)
+5. [Documents](#documents)
+6. [Contacts](#contacts)
 
 
 
@@ -27,28 +34,40 @@
 
 ## About The Practicum Projects
 
+### Overview
+
+### Technology
+
+### Significant Findings
+
 <!-- ROAD MAP -->
 
 ## Road Map
 
 <!-- DATA MINING METHODS -->
 
-## Data Mining Methods
+## Analysis Methods
+
+- **Attribute Analysis**: one-dimensional and multi-demensional analysis, correlation matrix, information values
+- **Data Mining**: Ensemble Algorithms (random sampling), Machine Learning Algorithms (Logistic Regression, k-Nearest Neighbor, Neural Networks)
+- **Industrial Analysis**: RFM (Marketing) Analysis, Scorecard (Finance) Analysis
+- **Evaluation**: Confustion Matrix, Accuracy Measures
 
 <!-- DOCUMENTS -->
 
 ## Documents
 
-This Github [repository](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects) comprises of 7 project files as follows:
+This [Github repository](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects) comprises of 7 project files as follows:
 
 - 3 PDF Files:
-  - [Analysis Documentation of 3 Projects](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_Final-Document.pdf)
+  - [Analysis Documentation of 3 Projects](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_Final-Document.pdf) **(FULL ANALYSIS PAPER)**
   - [R Codes Documentation](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_R-Codes.pdf)
   - [Final Result Presentation](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_Presentation.pdf)
 - 4 R Markdown Files:
   - [Case 1 .Rmd File](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_CS1-Bankruptcy_R.Rmd)
   - [Case 2 .Rmd File (RFM Analysis)](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_CS2-Book-Club_RFM.Rmd)
   - [Case 2 .Rmd File (ML Analysis)](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_CS2-Book-Club_ML.Rmd)
+  - [Case 3 .Rmd File](https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_CS3-Home-Equity_R.Rmd)
 <!-- CONTACTS -->
 
 ## Contacts
