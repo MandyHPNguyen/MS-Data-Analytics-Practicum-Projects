@@ -1,21 +1,15 @@
 <!-- PROJECT HEADER -->
 
-<br />
-<div align="center">
-
-
-
-<br />
 <div align="center">
   <a href="https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects">
-    <img src="Python-Lens.png" alt="Logo" width="80" height="80">
+    <img src="/images/Python-Lens.png" alt="Logo" width="80" height="80">
   </a>
-  <title>Master of Science in Data Analytics</title>
+  <h1>Master of Science in Data Analytics</1>
   <h2>Final Practicum Projects in 2021</h2>
   <p><strong>developed by Mandy HP Nguyen</strong></p>
   The practicum includes 3 data classification projects 
   <br />
-  <a href="https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_Final-Document.pdf">
+  <a href="https://github.com/mandyhpnguyen/MS-Data-Analytics-Practicum-Projects/blob/main/Mandy-Nguyen_Practicum_Final-Document.pdf" target="_blank">
     <strong><< Full Paper HERE >></strong>
   </a>
 </div>
